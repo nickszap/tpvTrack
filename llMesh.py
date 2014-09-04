@@ -1,28 +1,11 @@
-#neighborhood operations for latLon,mpas,wrf,... meshes
+#This is for a lat/long mesh going north-south, west-east.
+#A rotated latLon grid would need extra logic to account for the rotation.
 
 import numpy as np
 
-#print "\nFor latLon: lats[0->1] goes South. lons[0->1] goes east.\n" #it doesn't "really" matter since we only use neighborhoods
+import helpers
 
-def index_2dTo1d(iLat, iLon, nLon):
-  return iLat*nLon+iLon
-  
-def index_1dTo2d(ind, nLon):
-  iLon = ind%nLon
-  iLat = (ind-iLon)/nLon
-  return (iLat, iLon)
-
-def flatten_2dTo1d(vals, nLat, nLon):
-  #vals[lat][lon] goes to vals[iLat*nLon+iLon]
-  
-  valsOut = np.ravel(vals)
-  return valsOut
-
-def unflatten_1dTo2d(vals, nLat, nLon):
-  #vals[iLat*nLon+iLon] goes to vals[lat][lon]
-  
-  valsOut = np.reshape(vals, (nLat,nLon))
-  return valsOut
+print "Expected format: lats[0->1] goes South. lons[0->1] goes east.\n" #matters in forming searchDisk
 
 def area_latLonCell(latN, latS, dLon, r):
   #input angles in radians of northern bound, southern bound, and width of rectangle in radians
@@ -47,8 +30,8 @@ def calc_areaLatStrips(lat, r):
   areaLats[nonPole] = area_latLonCell(latsN, latsS, dLon, r)
   
   #assuming symmetric latitudes for poles, area of cap is just residual.
-  #this probably has more roundoff error than just computing area of cap zone, but
-  #this doesn't matter too much for weighting since we normalize by sum(weights) anyway.
+  #who knows if this has more roundoff error than just computing area of cap zone.
+  #either way, shouldn't matter too much.
   nonPoleArea = np.sum(areaLats[nonPole]); totArea = 4.*np.pi*r*r
   #print nonPoleArea, totArea
   areaCap = (totArea-nonPoleArea)/2
@@ -56,6 +39,70 @@ def calc_areaLatStrips(lat, r):
   
   return areaLats
 
+iLonRef = 0
+def calc_lonIndicesWithinLength(lats, nLon, r, distRegion):
+  #return the number of longitude indices within given length at each specified latitude.
+  #imagine this is like a pyramid with more at the poles and less at the equator.
+  #since radius, take nLons[iLat] points both east and west for disk
+  dRadLon = 2.*np.pi/nLon #[0,2pi)
+  dLons = r*np.cos(lats)*dRadLon; #arc lengths of pieces of latitude circles
+  dLons = np.maximum(dLons, 1.e-12) #elementwise to avoid /0
+  nLons = np.floor(distRegion/dLons).astype(int);
+  #since made to index left and right, as max:
+  #want len(range(left, right))=nLons (remember, not w/ right endpt)
+  nLons = np.minimum(nLons, nLon/2)
+  
+  #indices are: np.arange(-nLons/2, nLons/2)%nLons...maybe np.sort(...)
+  return nLons
+
+def calc_latIndicesWithinLength(nLats, r, distRegion):
+  #return the number of latitude indices within given length
+  dRadLat = np.pi/(nLats-1) #[-pi/2, pi/2]
+  distSN = r*dRadLat #arc length South-North
+  nNorth = int(np.floor(distRegion/distSN))
+  
+  #actual indices are:
+  #indN = np.min((iLat+nNorth, nLat-1)); indS = np.max((iLat-nNorth, 0))
+  return nNorth
+
+def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
+                             nLatIndsLength, nLonIndsLength, r, distRegion):
+  #return list of lat,lon indices within specified spatial region of given point.
+  #for efficiency, call 1x per latitude and just shift lon indices.
+  #nLonIndsLength = calc_lonIndicesWithinLength(lats, nLon, r, distRegion)...1x per mesh
+  #Note that self=[iLat0,iLon0] pair will be in the returned region.
+  #for added efficiency, only return index of 1 value at pole since all really same point.
+  
+  #we'll do this by searching within the input bounding box.
+  lat0 = latCell[iLat0]; lon0 = lonCell[iLon0]
+  indNPole = np.max((iLat0-nLatIndsLength, 0)); indSPole = np.min((iLat0+nLatIndsLength, nLat-1))
+  indN = np.max((indNPole, 1)); indS = np.min((indSPole, nLat-2))
+  candLats = np.arange(indN,indS+1) #include endpoint
+  
+  #go east at each latitude until too far
+  inRegion_lat = []; inRegion_lon = []
+  for iLat in candLats:
+    #since symmetric about longitude, just have to plus distance and include
+    # 0 and -plus indices in the returned result.
+    candLons = np.arange(iLon0+1,iLon0+nLonIndsLength[iLat]+1)%nLon
+    d = helpers.calc_distSphere_multiple(r, lat0, lon0, latCell[iLat], lonCell[candLons])
+    closeLons = candLons[d<distRegion]
+    lonInds = np.concatenate((closeLons,iLon0+iLon0-closeLons)).tolist();
+    lonInds.append(iLon0)
+    
+    inRegion_lon.extend(lonInds)
+    inRegion_lat.extend([iLat]*len(lonInds))
+  
+  #add in 1 value at pole if w/in region
+  if (indNPole==0):
+    inRegion_lon.append(iLon0); inRegion_lat.append(indNPole)
+  if (indSPole==nLat-1):
+    inRegion_lon.append(iLon0); inRegion_lat.append(indSPole)
+    
+  inRegion_lon = np.array(inRegion_lon)%nLon
+  inRegion_lat = np.array(inRegion_lat)
+  return (inRegion_lat, inRegion_lon)  
+  
 class Mesh(object):
   def __init__(self,lat,lon, r):
     self.r = r
@@ -63,18 +110,45 @@ class Mesh(object):
     self.lon = lon
     self.nLat = len(lat)
     self.nLon = len(lon)
-    self.areaCell = self.fill_latCellArea()
-    self.inRegion = np.ones((nLat,nLon),dtype=int)
-  
+    self.nCells = self.nLat*self.nLon
+    self.areaCell = np.empty(self.nLat,dtype=float)
+    self.inRegion = np.ones((self.nLat,self.nLon),dtype=int)
+    self.inDiskLat = [None]*self.nLat
+    self.inDiskLon = [None]*self.nLat
+    
   def fill_latCellArea(self):
     areaLat = calc_areaLatStrips(self.lat, self.r)
     self.areaCell = areaLat/self.nLon
-
+  
+  def fill_inDisk(self, dRegion):
+    r = self.r; lat = self.lat; lon = self.lon;
+    nLat = self.nLat; nLon = self.nLon
+    nLatIndsLength = calc_latIndicesWithinLength(nLat, r, dRegion)
+    nLonIndsLength = calc_lonIndicesWithinLength(lat, nLon, r, dRegion)
+    
+    for iLat in xrange(nLat):
+      inDiskLat, inDiskLon_ref = gatherInds_region_latBox_1AtPole(iLat, iLonRef, nLat, nLon, lat, lon,
+                                                  nLatIndsLength, nLonIndsLength, r, dRegion)
+      #
+      self.inDiskLat[iLat] = inDiskLat
+      self.inDiskLon[iLat] = inDiskLon_ref
+  
+  def find_closestCell2Pt(self, latPt, lonPt):
+    #closest pt is (closest lat, closest lon)
+    iLat = np.argmin(np.abs(self.lat-latPt)); 
+    iLon = np.argmin(np.abs(self.lon-lonPt));
+    
+    return (iLat, iLon)
+    
+  def fill_inRegion(self, latThresh):
+    self.inRegion[self.lat<latThresh,:] = 0
+    
 class Cell(object):
   def __init__(self,mesh,iLat,iLon):
-    self.iLat = 0
-    self.iLon = 0
+    self.iLat = iLat
+    self.iLon = iLon
     self.mesh = mesh
+    self.ind = helpers.index_2dTo1d(self.iLat,self.iLon,self.mesh.nLon)
   
   def isInRegion(self):
     return self.mesh.inRegion[self.iLat,self.iLon]>0
@@ -108,4 +182,15 @@ class Cell(object):
   def nbrInds_ll_flat(self):
     nbrInds_lat, nbrInds_lon = self.nbrInds_ll()
     nbrInds_lat = np.array(nbrInds_lat); nbrInds_lon = np.array(nbrInds_lon)
-    return index_2dTo1d(self.iLat,self.iLon,self.mesh.nLon)
+    return helpers.index_2dTo1d(self.iLat,self.iLon,self.mesh.nLon)
+    
+  def diskInds(self):
+    iLat = self.iLat; iLon = self.iLon; nLon = self.mesh.nLon
+    diffLonInd = iLon-iLonRef
+    inDiskLon = (self.mesh.inDiskLon[iLat]+diffLonInd)%nLon
+    
+    return (self.mesh.inDiskLat[iLat], inDiskLon)
+  
+  def get_areaCell(self):
+    return self.mesh.areaCell[self.iLat]
+

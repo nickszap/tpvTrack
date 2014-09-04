@@ -7,6 +7,9 @@ metr: u,v,theta,verticalVorticity,inRegion on DT
 import numpy as np
 import netCDF4
 
+import helpers
+import llMesh
+
 def get_missingCells_file(data):
   #if search vertical column down from top, there can be no 2pvu value if:
   #-entire column is above 2pvu: DT below sfc
@@ -37,65 +40,185 @@ def fill_missingVals_region(valsIn, nLat, nLon, isMissing, inRegion):
             needFill[iLat,iLon]=False
   
   return vals
+  
+def get_segmentVars_file(data):
+  #return data of variables needed from file, no time index.
+  #return SI units
+  
+  #fname = '/data02/cases/2014/gfs_4_20140101_0000_123.nc'
+  #data = netCDF4.Dataset(fname,'r')
+  lat = data.variables['lat_0'][:] * np.pi/180. #deg 2 radians
+  lon = data.variables['lon_0'][:] * np.pi/180.
+  
+  #for pvu levels, lv_PVL4 = [-2, 2]*E-6
+  pvInd = 1
+  tmp = data.variables['TMP_P0_L109_GLL0'][pvInd,:,:].data #K
+  press = data.variables['PRES_P0_L109_GLL0'][pvInd,:,:].data #Pa
+  
+  u = data.variables['UGRD_P0_L109_GLL0'][pvInd,:,:].data #m/s
+  v = data.variables['VGRD_P0_L109_GLL0'][pvInd,:,:].data
+  
+  return (lat, lon, u, v, tmp, press)
 
-def demo_eraI(fMesh, fData):
-  fDirData = '/data02/cases/2006/eraI/pv/'
-  fnames = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-07-20*.nc'), key=os.path.getmtime)
-  nFiles = len(fData)
-  for iFile in xrange(len(fnames)):
-    #gather persistent info like mesh, times,... ----------------------
-    fname = fnames[iFile]; 
-    data = netCDF4.Dataset(fname,'r')
+def calc_vertVorticity_ll(u, v, nLat, nLon, lat, r):
+  '''
+  Pulled from: http://www.ncl.ucar.edu/Document/Functions/Built-in/uv2vr_cfd.shtml :
+  According to H.B. Bluestein [Synoptic-Dynamic Meteorology in Midlatitudes, 1992, 
+  Oxford Univ. Press p113-114], 
+  let D represent the partial derivative, a the radius of the earth, 
+  phi the latitude and dx2/dy2 the appropriate longitudinal and latitudinal spacing, 
+  respectively. Then, letting j be the latitude y-subscript, and i be the longitude x-subscript:
+
+    rv = Dv/Dx - Du/Dy + (u/a)*tan(phi)
+
+
+    rv(j,i) = (v(j,i+1)-v(j,i-1))/dx2(j)
+              - (u(j+1,i)-u(j-1,i))/dy2(j)
+              + (u(j,i)/a)*tan(phi(j)) #since meridians aren't parallel
+
+  The last terms accounts for the convergence of the meridians on a sphere. 
+  '''
+  
+  #we'll do the above centered finite differencing for the non-pole latitudes.
+  #for the poles, we'll do a finite volume \int gradxu dA = \int u.n dS since 
+  #trying to finite difference it confuses me. remember that the poles are really
+  #nLon copies of the same point
+  
+  vort = np.empty((nLat, nLon), dtype=float)
+  
+  dRadLat = np.pi/(nLat-1) #[-pi/2, pi/2], ie with values at both poles
+  dRadLon = 2.*np.pi/nLon #[0,2pi)
+  dy = r*dRadLat; dy2 = 2.*dy #arc length on a sphere
+  
+  #calc values for non poles
+  for iLat in xrange(1,nLat-1):
+    tanphi = np.tan(lat[iLat])/r
+    dx = r*np.cos(lat[iLat])*dRadLon; dx2 = 2.*dx
+    for iLon in xrange(nLon):
+      iWest = (iLon-1)%nLon # -1%4=3 so don't worry about negatives
+      iEast = (iLon+1)%nLon
+      iSouth = iLat+1; iNorth = iLat-1
+      dv_dx = (v[iLat, iEast]-v[iLat, iWest])/dx2
+      du_dy = (u[iNorth, iLon]-u[iSouth, iLon])/dy2
+      meridTerm = u[iLat, iLon]*tanphi
+      vort[iLat, iLon] = dv_dx-du_dy+meridTerm
+      
+  #calc values for north and south poles with finite volume approach
+  #around next latitude equatorward of pole
+  iLat = nLat-1;
+  dx = r*np.cos(lat[iLat-1])*dRadLon #for evenly spaced lats, same dx for south and north
+  #for area of the cap, http://mathworld.wolfram.com/SphericalCap.html
+  a = dx/dRadLon
+  h = r-np.sqrt(r*r-a*a)
+  areaCap = 2.*np.pi*r*h
+  #around south pole, remember integrate with domain on left
+  undS = np.sum(u[iLat-1,:])*-dx #since +dx has domain on right
+  vort[iLat,:] = undS/areaCap
+  iLat = 0
+  undS = np.sum(u[iLat+1,:])*dx
+  vort[iLat,:] = undS/areaCap
+  
+  return vort
+
+def calc_potentialTemperature(tmp, press):
     
-    times = data.variables['time'][:]; nTimes = len(times)
-    d2r = np.pi/180.; 
-    lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
-    nLat = len(lat); nLon = len(lon)
-    
-    #specify region for segmentation, ----------------------------
-    #including halo so make sure nbr values are decent
-    latThreshHalo = 43.*np.pi/180.
-    latThresh = 45.*np.pi/180.
-    inRegionHalo = np.zeros((nLat,nLon), dtype=int); inRegionHalo[lat>latThreshHalo,:] = 1
-    inRegion = np.zeros((nLat,nLon), dtype=int); inRegion[lat>latThresh,:] = 1
+  Cp = 1004.5; Rd = 287.04;
+  Rd_cp = Rd/Cp; p0 = 1.e5
+  theta = tmp*((p0/press)**Rd_cp)
+  
+  return theta
+
+def eraTimeToCalendarTime(hrs):
+  #in the ERA file, time is stored as "hours since 1900-01-01 00:00:0.0"
+  #we'll convert that to a datetime object and return a nice looking string
+  
+  tBase = dt.datetime(1900, 1, 1, 0)
+  #note that TypeError: unsupported type for timedelta hours component: numpy.int32
+  tNew = tBase + dt.timedelta(hours=hrs)
+  tTuple = dt.datetime.timetuple(tNew);
+  s = time.strftime('%Y-%m-%d_%H', tTuple)
+  return s  
+
+def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, info='eraI case'):
+  #mesh ---------------------
+  data = netCDF4.Dataset(fMesh,'r')
+  d2r = np.pi/180.; 
+  lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
+  data.close()
+  
+  mesh = llMesh.Mesh(lat,lon, r)
+  mesh.fill_latCellArea()
+  mesh.fill_inDisk(dRegion)
+  mesh.fill_inRegion(latThresh)
+  
+  #metr fields -----------------
+  nFiles = len(filesDataIn)
+  if (nFiles<1):
+    return mesh
+  
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  iTimeGlobal = 0
+  for iFile in xrange(nFiles):
+    fPath = filesDataIn[iFile]
+    data = netCDF4.Dataset(fPath,'r')
     
     #loop over individual times ------------------------------
+    times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
     for iTime in xrange(nTimes):
+      #read from file
       theta = data.variables['pt'][iTime,:,:]
       u = data.variables['u'][iTime,:,:]; v = data.variables['v'][iTime,:,:]
-      vort = calc_vertVorticity_ll(u, v, nLat, nLon, lat, rEarth)
+      
+      #fill in missing values w/in region
+      #ERA-I doesn't appear to have any missing values...I don't know how their interpolation works.
+      #Some old documentation described PP2DINT that extrapolates using constant values
+      
+      #compute additional fields
+      vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)
     
-      #segment ------------------------------------------
-      theta = flatten_2dTo1d(theta, nLat, nLon)
-      vort = flatten_2dTo1d(vort, nLat, nLon)
-      inRegion = flatten_2dTo1d(inRegion, nLat, nLon)
-
-def writeNetcdf_mesh(fNameOut, info, lat,lon, inRegion, areaCell):
-
-  data = netCDF4.Dataset(fNameOut, 'w', format='NETCDF4')
-  data.description = 'Mesh information for: '+info
-
+      #write to file
+      u = helpers.flatten_2dTo1d(u, mesh.nLat, mesh.nLon)
+      v = helpers.flatten_2dTo1d(v, mesh.nLat, mesh.nLon)
+      theta = helpers.flatten_2dTo1d(theta, mesh.nLat, mesh.nLon)
+      vort = helpers.flatten_2dTo1d(vort, mesh.nLat, mesh.nLon)
+      
+      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
+      iTimeGlobal = iTimeGlobal+1
+    #end iTime
+  #end iFile
+  dataOut.close()
+  
+  return mesh
+  
+def write_netcdf_header_metr(fName, info, nCells):
+  
+  data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
+  data.description = info
+  
   # dimensions
-  nCells = len(areaCell)
+  data.createDimension('time', None)
   data.createDimension('nCells', nCells)
 
   # variables
-  dataLat = data.createVariable('lat', 'f4', ('nCells',))
-  dataLon = data.createVariable('lon', 'f4', ('nCells',))
-  dataInRegion = data.createVariable('inRegion', 'i2', ('nCells',))
-  dataAreaCell = data.createVariable('areaCell', 'f4', ('nCells',))
+  u_data = data.createVariable('u', 'f4', ('time','nCells',))
+  v_data = data.createVariable('v', 'f4', ('time','nCells',))
+  theta_data = data.createVariable('theta', 'f4', ('time','nCells',))
+  vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
   
   #units and descriptions
-  dataLat.units = 'radians N'
-  dataLon.units = 'radians E'
-  dataInRegion.units = 'flag'
-  dataAreaCell.units = 'm^2'
+  u_data.units = 'm/s'
+  v_data.units = 'm/s'
+  theta_data.units = 'K'
+  vort_data.units = '1/s'
   
-  # fill data
-  dataLat[:] = lat[:]
-  dataLon[:] = lon[:]
-  dataInRegion[:] = inRegion[:]
-  dataAreaCell[:] = areaCell[:]
-
-  data.close()
+  return data
+  
+def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
+  # fill file. with time as unlimited, dimension will just keep growing
+  
+  data.variables['u'][iTime,:] = u[:]
+  data.variables['v'][iTime,:] = v[:]
+  data.variables['theta'][iTime,:] = theta[:]
+  data.variables['vort'][iTime,:] = vort[:]
+#
 

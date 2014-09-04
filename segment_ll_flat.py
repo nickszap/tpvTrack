@@ -17,66 +17,6 @@ import os
 #-minimize: internal energy + external energy + curveCost(eg smoothness)
 #can create logically square say nearest nbr resample of area N of 75N and ship over to image processing+
 
-print "\nNeeded format: lats[0->1] goes South. lons[0->1] goes east.\n"
-
-def index_2dTo1d(iLat, iLon, nLon):
-  return iLat*nLon+iLon
-  
-def index_1dTo2d(ind, nLon):
-  iLon = ind%nLon
-  iLat = (ind-iLon)/nLon
-  return (iLat, iLon)
-
-def flatten_2dTo1d(vals, nLat, nLon):
-  #vals[lat][lon] goes to vals[iLat*nLon+iLon]
-  
-  valsOut = np.reshape(vals, nLat*nLon)
-  '''
-  gives same values as:
-  for iLat  in xrange(nLat):
-    for iLon in xrange(nLon):
-      ind1d = index_2dTo1d(iLat, iLon, nLon)
-      valsOut[ind1d] = vals[iLat, iLon]
-  plus, retains mask
-  '''
-  return valsOut
-
-def unflatten_1dTo2d(vals, nLat, nLon):
-  #vals[iLat*nLon+iLon] goes to vals[lat][lon]
-  
-  valsOut = np.reshape(vals, (nLat,nLon))
-  return valsOut
-
-def nbrInds_ll(iLat, iLon, nLat, nLon):
-  #return list of 8-conn nbr indices: [(latNbr1, lonNbr1), (latNbr2, lonNbr2),...]
-  #always have east, west neighbors. not north/south at respective pole
-  
-  iWest = (iLon-1)%nLon # -1%4=3 so don't worry about negatives
-  iEast = (iLon+1)%nLon
-  iSouth = iLat+1
-  iNorth = iLat-1
-  
-  haveSouth = iSouth<nLat
-  haveNorth = iNorth>-1
-  
-  nbrLats = [iLat, iLat]; nbrLons = [iWest, iEast]
-  if (haveSouth):
-    nbrLats.extend([iSouth, iSouth, iSouth])
-    nbrLons.extend([iWest, iLon, iEast])
-    
-  if (haveNorth):
-    nbrLats.extend([iNorth, iNorth, iNorth])
-    nbrLons.extend([iWest, iLon, iEast])
-    
-  #to get flat array indices, call index_2dTo1d(lats, lons, nlon)
-  #nbrLats = np.array(nbrLats, dtype=int); nbrLons = np.array(nbrLons, dtype=int)
-  return (nbrLats, nbrLons)
-
-def nbrInds_ll_flat(iLat, iLon, nLat, nLon):
-  nbrInds_lat, nbrInds_lon = nbrInds_ll(iLat, iLon, nLat, nLon)
-  nbrInds_lat = np.array(nbrInds_lat); nbrInds_lon = np.array(nbrInds_lon)
-  return index_2dTo1d(nbrInds_lat, nbrInds_lon, nLon)
-
 def calc_distSphere_multiple(r, lat1, lon1, lat2, lon2):
   '''
   #return the distance between 1 ll1 point and >=1 ll2 points.
@@ -147,58 +87,6 @@ def calc_latIndicesWithinLength(nLats, r, distRegion):
   #indN = np.min((iLat+nNorth, nLat-1)); indS = np.max((iLat-nNorth, 0))
   return nNorth
 
-def gatherInds_box_nPoints(iLat0, iLon0, nLat, nLon, nPointsDir):
-  #indexes of points that fall within a logical "square" centered over the given
-  #~2nPoints x 2nPoints
-  
-  print "Not finished writing"
-  pass
-  
-  iN = iLat0-nPointsDir; iS = iLat0+nPointsDir;
-  iEast = iLon0+nPointsDir; iWest = iLon0-nPointsDir;
-  
-  lat0 = latCell[iLat0]; lon0 = lonCell[iLon0]
-  indN = np.max((iLat0-nLatIndsLength, 0)); indS = np.min((iLat0+nLatIndsLength, nLat-1))
-  candLats = np.arange(indN,indS+1) #include endpoint
-  candLons = np.arange(iLon0+1,iLon0+nLonIndsLength[iLat]+1)%nLon
-  
-  print "Not finished writing"
-
-def gatherInds_region_latBox(iLat0, iLon0, nLat, nLon, latCell, lonCell,
-                             nLatIndsLength, nLonIndsLength, r, distRegion):
-  #return list of lat,lon indices within specified spatial region of given point.
-  #for efficiency, call 1x per latitude and just shift lon indices.
-  #nLonIndsLength = calc_lonIndicesWithinLength(lats, nLon, r, distRegion)...1x per mesh
-  #Note that self=[iLat0,iLon0] pair will be in the returned region.
-  
-  #we'll do this by searching within the input bounding box.
-  lat0 = latCell[iLat0]; lon0 = lonCell[iLon0]
-  indN = np.max((iLat0-nLatIndsLength, 0)); indS = np.min((iLat0+nLatIndsLength, nLat-1))
-  candLats = np.arange(indN,indS+1) #include endpoint
-  
-  #go east at each latitude until too far
-  inRegion_lat = []; inRegion_lon = []
-  for iLat in candLats:
-    #since symmetric about longitude, just have to plus distance and include
-    # 0 and -plus indices in the returned result.
-    lonInds = []
-    for iLon in np.arange(iLon0+1,iLon0+nLonIndsLength[iLat]+1)%nLon:
-      d = calc_distSphere_multiple(r, lat0, lon0, latCell[iLat], lonCell[iLon])
-      if (d<distRegion):
-        lonInds.append(iLon)
-      else: #already too far away, can skip looking at farther points
-        break    
-    #now we have [+lonInds]
-    lonInds.extend([iLon0+iLon0-i for i in lonInds]) #-list
-    lonInds.append(iLon0)
-    
-    inRegion_lon.extend(lonInds)
-    inRegion_lat.extend([iLat]*len(lonInds))
-    
-  inRegion_lon = np.array(inRegion_lon)%nLon
-  inRegion_lat = np.array(inRegion_lat)
-  return (inRegion_lat, inRegion_lon)
-
 def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
                              nLatIndsLength, nLonIndsLength, r, distRegion):
   #return list of lat,lon indices within specified spatial region of given point.
@@ -206,8 +94,6 @@ def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
   #nLonIndsLength = calc_lonIndicesWithinLength(lats, nLon, r, distRegion)...1x per mesh
   #Note that self=[iLat0,iLon0] pair will be in the returned region.
   #for added efficiency, only return index of 1 value at pole since all really same point.
-  
-  #print "Something may be buggy in latBox_1AtPole()"
   
   #we'll do this by searching within the input bounding box.
   lat0 = latCell[iLat0]; lon0 = lonCell[iLon0]
@@ -326,22 +212,6 @@ def watershed_region(vals, cellIsMin, nLat, nLon, r, dRegion, latCell, lonCell, 
   
   nRedirect = 0
   
-  if (False):
-    print "This is buggy since nbr of poles used above not full lat circle"
-    #if extremum at pole, make so only 1 point at each pole.
-    #area filter below will reconnect to min in region
-    iLat0=0; iLon0=0; iCell0 = index_2dTo1d(iLat0, iLon0, nLon)
-    lonRange = np.arange(1,nLon)
-    if (cellIsMin[iCell0]>0): #whole latitude circle should go to it
-      nRedirect = nRedirect+nLon-1
-      cells = index_2dTo1d(iLat0, lonRange, nLon)
-      cellIsMin[cells] = 0; cell2Site[cells] = iCell0
-    iLat0=nLat-1; iLon0=0; iCell0 = index_2dTo1d(iLat0, iLon0, nLon)
-    if (cellIsMin[iCell0]>0): #whole latitude circle should go to it
-      nRedirect = nRedirect+nLon-1
-      cells = index_2dTo1d(iLat0, lonRange, nLon)
-      cellIsMin[cells] = 0; cell2Site[cells] = iCell0
-  
   #Filter local extrema by area to limit high (spatial) frequency "noise".
   #For multiple close mins, the smallest counts as min for that region.
   #dRegion = 300.e3 #radius in meters of disk of filtering region
@@ -374,34 +244,6 @@ def watershed_region(vals, cellIsMin, nLat, nLon, r, dRegion, latCell, lonCell, 
           cell2Site[iCell] = minCell
           nRedirect = nRedirect+1
   print "Number of redirects for regional min: ", nRedirect
-  
-  ''' other options:
-  nRedirect = 0
-  for iCell in xrange(nCells):
-    if (inRegion[iCell]<1):
-      continue
-    if (cellIsMin[iCell]>0):
-      #see if cell is min in region, not just neighbors.
-      #if not regional min, update cell2Site so local min goes to another basin
-      
-      iLat0, iLon0 = index_1dTo2d(iCell, nLon)
-      inDiskLat, inDiskLon = gatherInds_region_latBox(iLat0, iLon0, nLat, nLon, latCell, lonCell,
-                                                nLatIndsLength, nLonIndsLength, r, dRegion)
-      #inDiskLat, inDiskLon = gatherCells_region(iLat0, iLon0, nLat, nLon, latCell, lonCell, 
-      #                                          r, dRegion)
-      #np.array(inDiskLat), np.array(inDiskLon)
-      
-      cellsRegion = index_2dTo1d(inDiskLat, inDiskLon, nLon)
-      valsRegion = vals[cellsRegion]
-      minInd = np.argmin(valsRegion)
-      minCell = cellsRegion[minInd]; minVal = valsRegion[minInd]
-      val0 = vals[iCell]
-      if (minVal < val0):
-        cellIsMin[iCell] = 0
-        cell2Site[iCell] = minCell
-        nRedirect = nRedirect+1
-  print "Number of redirects for regional min: ", nRedirect
-  '''
   
   #follow local steepest path (and any redirections from, say, regional thresholds) to site
   for iCell in xrange(nCells):

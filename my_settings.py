@@ -16,3 +16,6 @@ filesMetr = sorted(glob.glob(fDir+'/seg/fields_*.npz'), key=os.path.getmtime)
 filesSeg = sorted(glob.glob(fDir+'/seg/seg_*.npz'), key=os.path.getmtime)
 filesMetrics = sorted(glob.glob(fDir+'/seg/metrics_*.npz'), key=os.path.getmtime)
 filesTrack = sorted(glob.glob(fDir+'/track/track_seg*.npz'), key=os.path.getmtime)
+
+trackMinMaxBoth = 0 #0-min, 1-max, 2-both
+mesh = 'll' #'ll','wrf','mpas'

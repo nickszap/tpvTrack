@@ -147,7 +147,7 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, info='eraI ca
   data.close()
   
   mesh = llMesh.Mesh(lat,lon, r)
-  mesh.fill_latCellArea()
+  #mesh.fill_latCellArea()
   mesh.fill_inDisk(dRegion)
   mesh.fill_inRegion(latThresh)
   
@@ -200,9 +200,9 @@ def write_netcdf_header_metr(fName, info, nCells):
   data.createDimension('nCells', nCells)
 
   # variables
-  u_data = data.createVariable('u', 'f4', ('time','nCells',))
-  v_data = data.createVariable('v', 'f4', ('time','nCells',))
-  theta_data = data.createVariable('theta', 'f4', ('time','nCells',))
+  u_data = data.createVariable('u', 'f8', ('time','nCells',))
+  v_data = data.createVariable('v', 'f8', ('time','nCells',))
+  theta_data = data.createVariable('theta', 'f8', ('time','nCells',))
   vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
   
   #units and descriptions

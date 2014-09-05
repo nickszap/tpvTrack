@@ -16,3 +16,4 @@ fDirData = '/data02/cases/summer2006/eraI/pv/'
 filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-07-20*.nc'), key=os.path.getmtime)
 
 fDirSave = '/data02/cases/test_segment/testUnified/'
+info = 'eraI_45N_test'

@@ -99,8 +99,8 @@ def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
   if (indSPole==nLat-1):
     inRegion_lon.append(iLon0); inRegion_lat.append(indSPole)
     
-  inRegion_lon = np.array(inRegion_lon)%nLon
-  inRegion_lat = np.array(inRegion_lat)
+  inRegion_lon = np.array(inRegion_lon, dtype=int)%nLon
+  inRegion_lat = np.array(inRegion_lat, dtype=int)
   return (inRegion_lat, inRegion_lon)  
   
 class Mesh(object):
@@ -108,13 +108,14 @@ class Mesh(object):
     self.r = r
     self.lat = lat
     self.lon = lon
-    self.nLat = len(lat)
-    self.nLon = len(lon)
-    self.nCells = self.nLat*self.nLon
-    self.areaCell = np.empty(self.nLat,dtype=float)
-    self.inRegion = np.ones((self.nLat,self.nLon),dtype=int)
-    self.inDiskLat = [None]*self.nLat
-    self.inDiskLon = [None]*self.nLat
+    nLat = len(lat); nLon = len(lon)
+    self.nLat = nLat
+    self.nLon = nLon
+    self.nCells = nLat*nLon
+    self.areaCell = calc_areaLatStrips(lat, r)/nLon
+    self.inRegion = np.ones((nLat,nLon),dtype=int)
+    self.inDiskLat = [None]*nLat
+    self.inDiskLon = [None]*nLat
     
   def fill_latCellArea(self):
     areaLat = calc_areaLatStrips(self.lat, self.r)
@@ -142,14 +143,41 @@ class Mesh(object):
     
   def fill_inRegion(self, latThresh):
     self.inRegion[self.lat<latThresh,:] = 0
+  
+  def get_inRegion1d(self):
+    return helpers.flatten_2dTo1d(self.inRegion, self.nLat, self.nLon)>0
+  
+  def isIndsInRegion(self, inds):
+    #creating a view should be cheap, but then we operate on it...
+    inRegion = helpers.flatten_2dTo1d(self.inRegion, self.nLat, self.nLon)
+    return inRegion[inds]>0
+    
+  def get_latLon_inds(self, inds):
+    iLats, iLons = helpers.index_1dTo2d(inds, self.nLon)
+    return (self.lat[iLats], self.lon[iLons])
     
 class Cell(object):
-  def __init__(self,mesh,iLat,iLon):
+  def __init__(self,mesh,ind):
+    iLat, iLon = helpers.index_1dTo2d(ind, mesh.nLon)
     self.iLat = iLat
     self.iLon = iLon
     self.mesh = mesh
-    self.ind = helpers.index_2dTo1d(self.iLat,self.iLon,self.mesh.nLon)
+    self.ind = ind
   
+  def __iter__(self):
+    return self
+
+  def next(self): # Python 3: def __next__(self)
+    if self.ind >= self.mesh.nCells-1:
+      raise StopIteration
+    else:
+      self.ind = self.ind + 1
+      self.iLat,self.iLon = helpers.index_1dTo2d(self.ind, self.mesh.nLon)
+      return self
+  
+  def copy(self):
+    return Cell(self.mesh, self.ind)
+      
   def isInRegion(self):
     return self.mesh.inRegion[self.iLat,self.iLon]>0
       
@@ -179,10 +207,10 @@ class Cell(object):
       
     return (nbrLats, nbrLons)
 
-  def nbrInds_ll_flat(self):
+  def get_nbrInds(self):
     nbrInds_lat, nbrInds_lon = self.nbrInds_ll()
-    nbrInds_lat = np.array(nbrInds_lat); nbrInds_lon = np.array(nbrInds_lon)
-    return helpers.index_2dTo1d(self.iLat,self.iLon,self.mesh.nLon)
+    nbrInds_lat = np.array(nbrInds_lat,dtype=int); nbrInds_lon = np.array(nbrInds_lon,dtype=int)
+    return helpers.index_2dTo1d(nbrInds_lat,nbrInds_lon,self.mesh.nLon)
     
   def diskInds(self):
     iLat = self.iLat; iLon = self.iLon; nLon = self.mesh.nLon
@@ -190,6 +218,10 @@ class Cell(object):
     inDiskLon = (self.mesh.inDiskLon[iLat]+diffLonInd)%nLon
     
     return (self.mesh.inDiskLat[iLat], inDiskLon)
+  
+  def get_regionInds(self):
+    iLats,iLons = self.diskInds()
+    return helpers.index_2dTo1d(iLats,iLons,self.mesh.nLon)
   
   def get_areaCell(self):
     return self.mesh.areaCell[self.iLat]

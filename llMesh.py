@@ -134,13 +134,17 @@ class Mesh(object):
       self.inDiskLat[iLat] = inDiskLat
       self.inDiskLon[iLat] = inDiskLon_ref
   
-  def find_closestCell2Pt(self, latPt, lonPt):
+  def find_closestCell2Pt_ll(self, latPt, lonPt):
     #closest pt is (closest lat, closest lon)
     iLat = np.argmin(np.abs(self.lat-latPt)); 
     iLon = np.argmin(np.abs(self.lon-lonPt));
     
     return (iLat, iLon)
-    
+  
+  def get_closestCell2Pt(self, latPt, lonPt):
+    iLat, iLon = self.find_closestCell2Pt_ll(latPt, lonPt)
+    return helpers.flatten_2dTo1d(iLat, iLon, self.nLon)
+  
   def fill_inRegion(self, latThresh):
     self.inRegion[self.lat<latThresh,:] = 0
   

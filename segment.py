@@ -1,5 +1,7 @@
 import numpy as np
 import netCDF4
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 
 import helpers
 
@@ -240,4 +242,57 @@ def run_segment(fSeg, info, dataMetr, cell0, mesh):
     
   dataSeg.close()
 
+def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
+  #Input all as 1d arrays. lat/lon in radians
+  
+  plt.figure()
+
+  #m = Basemap(projection='ortho',lon_0=100,lat_0=60, resolution='l')
+  r2d = 180./np.pi
+  m = Basemap(projection='ortho',lon_0=0,lat_0=90, resolution='l')
+  x,y = m(lon*r2d, lat*r2d)
+  #print x.shape, y.shape
+
+  m.drawcoastlines(linewidth=.5)
+  #m.drawmapboundary()
+  
+  pPlot = m.pcolor(x,y,vals,tri=True, shading='flat',edgecolors='none',cmap=plt.cm.jet, vmin=280, vmax=360)
+  
+  xMin = x[sitesMin]; yMin = y[sitesMin]; m.scatter(xMin, yMin, c='k', marker="v")
+  xMax = x[sitesMax]; yMax = y[sitesMax]; m.scatter(xMax, yMax, c='w', marker="^")
+
+  plt.colorbar(pPlot)
+  plt.savefig(fNameSave, bbox_inches='tight'); plt.close()
+
+def run_plotBasins(fDirSave, dataMetr, fSeg, mesh):
+  
+  lat, lon = mesh.get_latLon_inds(np.arange(mesh.nCells))
+  if (True):
+    #latLon cells will have duplicate points, which mucks up the triangulation
+    #this is a quick hack but a more robust option may be needed...
+    sizeDelta = .01*np.pi/180.
+    dll = sizeDelta*np.random.random(mesh.nCells)
+    lat += dll
+    lon += dll
+  
+  dataSeg = netCDF4.Dataset(fSeg,'r')
+  info = dataSeg.description
+  nTimes = len(dataSeg.dimensions['time'])
+  for iTime in xrange(nTimes):
+    fName = 'seg_{0}_{1}.png'.format(iTime, info)
+    fSave = fDirSave+fName
+    
+    cell2Site = dataSeg.variables['cell2Site'][iTime,:]
+    sitesMin = dataSeg.variables['sitesMin'][iTime,:];
+    nMin = dataSeg.variables['nSitesMin'][iTime]; sitesMin = sitesMin[0:nMin]
+    sitesMax = dataSeg.variables['sitesMax'][iTime,:]; 
+    nMax = dataSeg.variables['nSitesMax'][iTime]; sitesMax = sitesMax[0:nMax]
+    
+    theta = dataMetr.variables['theta'][iTime,:]
+    vals = theta[cell2Site]; vals[cell2Site<0] = np.nan; print vals
+    
+    print "Saving file: "+fSave
+    plot_basins_save(fSave, lat, lon, vals, sitesMin, sitesMax)
+  
+  dataSeg.close()
 

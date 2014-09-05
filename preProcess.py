@@ -144,6 +144,8 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, info='eraI ca
   data = netCDF4.Dataset(fMesh,'r')
   d2r = np.pi/180.; 
   lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
+  #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
+  lon = lon%(2.*np.pi)
   data.close()
   
   mesh = llMesh.Mesh(lat,lon, r)

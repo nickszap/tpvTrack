@@ -33,7 +33,9 @@ def demo():
     print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   
   dataMetr = netCDF4.Dataset(fMetr,'r')
-  segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
+  #segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
+  
+  segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   dataMetr.close()
   
   #spatial metrics ------------------------

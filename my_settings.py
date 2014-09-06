@@ -14,6 +14,7 @@ mesh = 'll' #'ll','wrf','mpas'
 
 fDirData = '/data02/cases/summer2006/eraI/pv/'
 filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-07-20*.nc'), key=os.path.getmtime)
+deltaT = 6.*60.*60. #time frequency (s)
 
 fDirSave = '/data02/cases/test_segment/testUnified/'
 info = 'eraI_45N_test'

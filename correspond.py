@@ -3,23 +3,23 @@ import netCDF4
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
   
-def advect_LatLon(u, v, lat, lon, dt, r ):
+def advect_LatLon(u, v, latIn, lonIn, dt, r ):
   #return new lat/lon coordinates based on:
   #u,v in m/s, lat/lon in radians, dt in s, rSphere in m
   
   #u = r cos(lat) dLon/dt, v = r dLat/dt
   #constrain latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
   
-  dLon_dt = u/(r*np.cos(lat)) #if lat=+- pi/2, this will be big
+  dLon_dt = u/(r*np.cos(latIn)) #if lat=+- pi/2, this will be big
   dLat_dt = v/r
   
-  lat = lat+ dLat_dt*dt; lon = lon+ dLon_dt*dt
+  lat = latIn+ dLat_dt*dt; lon = lonIn+ dLon_dt*dt
   #want to bound lat/lon. Note that for silly big meridional velocities, the following
   #can adjust to outside of poles, but then the whole tracking idea is screwed anyway.
   
   #bound lat. 
   #imagine crossing north pole so 89->93 is really 89->87N and 180degree switch in longitude
-  crossedN = latOut>np.pi/2
+  crossedN = lat>np.pi/2
   lat[crossedN] = np.pi-lat[crossedN]; #pi/2 - (lat-pi/2)
   lon[crossedN] += np.pi #other half of hemisphere
   crossedS = lat<-np.pi/2
@@ -40,11 +40,22 @@ def advect_feature(siteInd, cell2Site, mesh, u, v, dt):
   latFeature, lonFeature = mesh.get_latLon_inds(cellInds)
   uFeature = u[cellInds]; vFeature = v[cellInds]
   
-  latInds, lonInds = segment_ll_flat.index_1dTo2d(cellInds, len(lon))
-  latFeature = lat[latInds]; lonFeature = lon[lonInds]
-  uFeature = u[latInds, lonInds]; vFeature = v[latInds, lonInds]
-  
   newLat, newLon = advect_LatLon(uFeature, vFeature, latFeature, lonFeature, dt, mesh.r )
+  
+  if (False):
+    #plot the original points and the advected
+    print latFeature; print lonFeature;
+    print newLat; print newLon
+    
+    m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
+    r2d = 180./np.pi
+    plt.figure()
+    m.drawcoastlines()
+    x0,y0 = m(lonFeature*r2d, latFeature*r2d)
+    x1,y1 = m(newLon*r2d, newLat*r2d)
+    m.scatter(x0,y0,color='b')
+    m.scatter(x1,y1,color='r')
+    plt.show()
   
   return (newLat, newLon)
 
@@ -59,265 +70,217 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
   #cells corresponding to those coordinates
   nPts = len(latPts);
   advCells = np.empty(nPts, dtype=int)
-  mesh.get_closestCell2Pt(latPt, lonPt)
   
   for iPt in xrange(nPts):
     advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
   
-  #multiple cells can advect into the same cell
-  advCells = np.unique(advCells)
+  if (False):
+    latCell, lonCell = mesh.get_latLon_inds(advCells)
+    print latPts; print lonPts
+    print latCell; print lonCell
+    m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
+    r2d = 180./np.pi
+    plt.figure()
+    m.drawcoastlines()
+    x0,y0 = m(lonPts*r2d, latPts*r2d)
+    x1,y1 = m(lonCell*r2d, latCell*r2d)
+    m.scatter(x0,y0,color='b')
+    m.scatter(x1,y1,color='r')
+    plt.show()
   
-  return advCells
+  #multiple cells can advect into the same cell
+  basinCells = np.unique(advCells) #apparently there's a sorting bug fixed in numpy 1.6.2...
+  #basinCells = np.array( list(set(advCells)), dtype=int )
+  
+  return basinCells
 
 def getCommon_1dInd(inds0, inds1):
   #return common values between lists with unique values
   return np.intersect1d(inds0, inds1, assume_unique=True)
-
-def make_candidateCorrespondence_fracOverlap(siteInds0, cell2Site0, u0, v0,
-                            siteInds1, cell2Site1, u1, v1, lat, lon, dt, r, areaLatCell):
+  
+def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
+                               sites1, cell2Site1, u1, v1, mesh):
   #Given fields+basins at t0 and t0+dt,
   #-create candidate matches by overlapping advection
   #in principle, overlap could mean: 
   #-# of common cells, min threshold for common area, min threshold for convex hulls overlapping area,...
   #return matrix with fraction of overlap by area(nCellsMatch)/area(nCellsPossible)
   
-  #possible siteInds0 = cell2Site0[cellIsMin>0] for tracking mins
-  nLon = len(lon); nSites0 = len(siteInds0); nSites1 = len(siteInds1)
-  doOverlap = np.zeros((nSites0, nSites1), dtype=float)
+  nSites0 = len(sites0); nSites1 = len(sites1)
+  fracOverlap = np.zeros((nSites0, nSites1), dtype=float)
   
   #store advection of t1 sites -dt/2
   sites2Cells_t1 = [None]*nSites1
   areaBasin1 = np.empty(nSites1,dtype=float)
   for iSite1 in xrange(nSites1):
-    siteInd = siteInds1[iSite1]
+    siteInd = sites1[iSite1]
     #advect basin -dt/2
-    iLat, iLon = calc_candidateCells_basin(siteInd, cell2Site1, lat, lon, u1, v1, -.5*dt, r)
-    sites2Cells_t1[iSite1] = segment_ll_flat.index_2dTo1d(iLat, iLon, nLon)
-    sites2Cells_t1[iSite1] = np.unique(sites2Cells_t1[iSite1])
-    
-    iLat, iLon  = segment_ll_flat.index_1dTo2d(sites2Cells_t1[iSite1], nLon)
-    areaBasin1[iSite1] = np.sum(areaLatCell[iLat])
+    sites2Cells_t1[iSite1] = advect_basin(siteInd, cell2Site1, mesh, u1, v1, -.5*dt)
+    areaBasin1[iSite1] = np.sum( mesh.get_area_inds(sites2Cells_t1[iSite1]) )
     
   #see which t0 sites advected dt/2 overlap with future sites advected back
   for iSite0 in xrange(nSites0):
-    siteInd = siteInds0[iSite0]
+    siteInd = sites0[iSite0]
     #advect basin +dt/2
-    iLat, iLon = calc_candidateCells_basin(siteInd, cell2Site0, lat, lon, u0, v0, .5*dt, r)
-    site2Cells_t0 = segment_ll_flat.index_2dTo1d(iLat, iLon, nLon)
-    site2Cells_t0 = np.unique(site2Cells_t0)
-    
-    iLat, iLon  = segment_ll_flat.index_1dTo2d(site2Cells_t0, nLon) 
-    areaBasin0 = np.sum(areaLatCell[iLat])
+    site2Cells_t0 = advect_basin(siteInd, cell2Site0, mesh, u0, v0, .5*dt)
+    areaBasin0 = np.sum( mesh.get_area_inds(site2Cells_t0) )
     
     for iSite1 in xrange(nSites1):
-      #for frac overlap, tough choice for what to use as #possible cells.
+      #for frac overlap, there's a choice for what cells to use.
       #consider candidate big t0 and small t1.
       #-for min(cellsInBasin), fraction will be high w/ few cells from big needed
       #-for max(cellsInBasin), fraction will be low even if lots of small covered
       commonCells = getCommon_1dInd(site2Cells_t0, sites2Cells_t1[iSite1])
-      iLat, iLon = segment_ll_flat.index_1dTo2d(commonCells, nLon)
-      areaCommon = np.sum(areaLatCell[iLat])
+      areaCommon = np.sum( mesh.get_area_inds(commonCells) )
       
-      minBasinArea = min(areaBasin0, areaBasin1[iSite1])
-      frac = areaCommon/minBasinArea
-      doOverlap[iSite0, iSite1] = frac
+      potentialArea = min(areaBasin0, areaBasin1[iSite1])
+      frac = areaCommon/potentialArea
+      fracOverlap[iSite0, iSite1] = frac
   
-  #print out some quick diagnostics
-  print "For overlapping advection", doOverlap
+  if (True):
+    #print out some quick diagnostics
+    print "For overlapping advection", fracOverlap
   
-  return doOverlap
+  return fracOverlap
 
-#given candidate matches (eg, by advection), can further filter 
-#these possible matches by 
-#(1) feature properties a la cost function:
-#reasonable changes in 
-#-thetaMin, circulation, feature velocity, location,...
-#over "short" time.
-#for feature velocity, can see that dLoc< max(fac*vel*dt, minDist~100km)
-#(2) event consistency:
-#propagate, split, merge, genesis, lysis should have characteristics
-#-propagate: similar intensity and area
-#-split: similar sumArea
-#-merge:
+def correspond(sites0, cell2Site0, u0, v0, dt, 
+               sites1, cell2Site1, u1, v1, mesh,
+               trackMinMaxBoth, fracOverlapThresh):
+  
+  #area overlap -------------------
+  fracOverlap = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh)
+  
+  #additional filters ---------------------
+  #(1) feature properties a la cost function:
+  #reasonable changes over "short" time in 
+  #-thetaMin, circulation, feature velocity, location,...
+  #(2) event consistency:
+  #propagate, split, merge, genesis, lysis should have characteristics
+  #-propagate: similar intensity and area
+  #-split: similar sumArea
+  #-merge:
+  
+  #these really end up needing to include matches not found in fracOverlap
+  #when consider cases like small TPVs breaking off of a large one
+  
+  #decide correspondence --------------------------
+  isMatch = fracOverlap>fracOverlapThresh
+  print "Number of matches from correspondence: {0}".format(np.sum(isMatch))
+  
+  return isMatch
 
-def demo_trackCFSR():
+def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt, 
+                   trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd):
   
-  #dirData = '/data02/cases/2006/cfsr_anl/seg/'
-  dirData = '/data02/cases/2006/eraI/seg/'
-  fnames_metr = sorted(glob.glob(dirData+'fields_*.npz'))
-  fnames_seg = sorted(glob.glob(dirData+'seg_*.npz'))
+  #write tracks to a text file?
+  fCorr = open(fNameOut,'w')
   
-  #fDir = '/data02/cases/2006/cfsr_anl/track/'
-  fDir = '/data02/cases/2006/eraI/track/'
-  
-  dt = 6*3600.; r = 6370.e3
-  
-  nFiles = len(fnames_seg);
-  for iFile in xrange(nFiles-1): #xrange(4,5):
-  #for iFile in xrange(0,4):
-    fSeg0 = fnames_seg[iFile]; fMetr0 = fnames_metr[iFile]
-    fSeg1 = fnames_seg[iFile+1]; fMetr1 = fnames_metr[iFile+1]
+  for iTime in xrange(iTimeStart,iTimeEnd): #iTimeEnd will be the end of the correspondences
+    #segmentation data
+    cell2Site0 = dataSeg.variables['cell2Site'][iTime,:]
+    sitesMin0 = dataSeg.variables['sitesMin'][iTime,:];
+    nMin0 = dataSeg.variables['nSitesMin'][iTime]; sitesMin0 = sitesMin0[0:nMin0]
+    sitesMax0 = dataSeg.variables['sitesMax'][iTime,:]; 
+    nMax0 = dataSeg.variables['nSitesMax'][iTime]; sitesMax0 = sitesMax0[0:nMax0]
     
-    #need u,v fields for advection. if for real, fill missing values w/in region too.
-    #theta if filtering on min(theta)
-    data = np.load(fMetr0)
-    lat = data['lat']; lon = data['lon']; nLat = len(lat); nLon = len(lon)
-    u0 = data['u']; v0 = data['v']; thetaFlat = data['theta']
-    theta0 = segment_ll_flat.unflatten_1dTo2d(thetaFlat, nLat, nLon)
-    data.close()
-    data = np.load(fMetr1)
-    u1 = data['u']; v1 = data['v']; thetaFlat = data['theta']
-    theta1 = segment_ll_flat.unflatten_1dTo2d(thetaFlat, nLat, nLon)
-    data.close()
-        
-    #segmentation into basins at each time
-    data_seg = np.load(fSeg0)
-    cell2Site0 = data_seg['cell2Site'][:]
-    cellIsMin0 = data_seg['cellIsMin'][:]
-    cellIsMax0 = data_seg['cellIsMax'][:]
-    data_seg.close()
-    data_seg = np.load(fSeg1)
-    cell2Site1 = data_seg['cell2Site'][:]
-    cellIsMin1 = data_seg['cellIsMin'][:]
-    cellIsMax1 = data_seg['cellIsMax'][:]
-    data_seg.close()
+    cell2Site1 = dataSeg.variables['cell2Site'][iTime+1,:]
+    sitesMin1 = dataSeg.variables['sitesMin'][iTime+1,:];
+    nMin1 = dataSeg.variables['nSitesMin'][iTime+1]; sitesMin1 = sitesMin1[0:nMin1]
+    sitesMax1 = dataSeg.variables['sitesMax'][iTime+1,:]; 
+    nMax1 = dataSeg.variables['nSitesMax'][iTime+1]; sitesMax1 = sitesMax1[0:nMax1]
     
-    #choose which basins we want to track.
-    #could just as well track all with:
-    #siteInds0 = cell2Site0==range(nCells), ie cell goes to self
-    #or np.unique[cell2Site[inRegion]]
-    trackMin = True; trackMax=False #pick one or other. 
-    #something to do with filtering by thetaMin
-    #that I don't use (since tpv's merging/breaking off can have any theta).
-    if (trackMin):
-      siteInds0 = cell2Site0[cellIsMin0>0]
-      siteInds1 = cell2Site1[cellIsMin1>0]
-    elif (trackMax):
-      siteInds0 = cell2Site0[cellIsMax0>0]
-      siteInds1 = cell2Site1[cellIsMax1>0]
+    #metr data
+    u0 = dataMetr.variables['u'][iTime,:]; v0 = dataMetr.variables['v'][iTime,:]
+    u1 = dataMetr.variables['u'][iTime+1,:]; v1 = dataMetr.variables['v'][iTime+1,:]
     
-    areaLatCell = calc_areaLatStrips(lat, r)/nLon
-    if(True):
-      doOverlapFrac = make_candidateCorrespondence_fracOverlap(siteInds0, cell2Site0, u0, v0,
-                              siteInds1, cell2Site1, u1, v1, lat, lon, dt, r, areaLatCell)
-      matchFracThresh = .35; print "Fractional area match if > {0}".format(matchFracThresh)
-      overlapFracThresh = 0.0; print "Fractional area overlap if > {0}".format(overlapFracThresh)
-      doMatch = (doOverlapFrac>matchFracThresh).astype(int)
-      doOverlap = (doOverlapFrac>overlapFracThresh).astype(int)
-    else:
-      doOverlap = make_candidateCorrespondence_overlap(siteInds0, cell2Site0, u0, v0,
-                            siteInds1, cell2Site1, u1, v1, lat, lon, dt, r)
-      doMatch = 0*doOverlap
-    
-    print "Number of correspondences from advection: {0}".format(np.sum(doOverlap))
-    print "Number of matches from overlapping advection: {0}".format(np.sum(doMatch))
-    
-    #filter correspondences
-    #nLon = len(lon); nLat = len(lat)
-    nSites0 = len(siteInds0); nSites1 = len(siteInds1)
-    
-    theta0 = segment_ll_flat.flatten_2dTo1d(theta0, nLat, nLon)
-    theta1 = segment_ll_flat.flatten_2dTo1d(theta1, nLat, nLon)
-    
-    if (trackMax):
-      theta0 = -theta0; theta1 = -theta1
-    
-    #area overlaps are matches and we can further add on more ----------------
-    isMatch = doMatch.copy()
-    
-    #if (True):
-    if (False):
-      print "Filtering by thetaMin"
-      for iSite0, site0 in enumerate(siteInds0):
-        for iSite1, site1 in enumerate(siteInds1):
-          if (doOverlap[iSite0,iSite1]>0 and not doMatch[iSite0,iSite1]):
-            isMatch[iSite0,iSite1] += filterCorrespondence_thetaMin(site0, cell2Site0, theta0, 
-                          site1, cell2Site1, theta1, dt)
-      print "Number of correspondences after thetaMin threshold: {0}".format(np.sum(isMatch))
-    
-    if (True):
-    #if (False):
-      print "Filtering by velDistance_object"
-      for iSite0, site0 in enumerate(siteInds0):
-        for iSite1, site1 in enumerate(siteInds1):
-          if (doOverlap[iSite0,iSite1]>0 and not doMatch[iSite0,iSite1]):
-            isMatch[iSite0,iSite1] += filterCorrespondence_velDistance_object(site0, cell2Site0, u0, v0, 
-                                           site1, cell2Site1, u1, v1, 
-                                           lat, lon, areaLatCell, r, dt)
-      print "Number of correspondences after velDistance_obj threshold: {0}".format(np.sum(isMatch))
-    
-    #if (True):
-    if (False):
-      print "Filtering by velDistance_extremum"
+    #which basins we want to track ----------------------------
+    sites0 = []; sites1 = []
+    if (trackMinMaxBoth == 0): #just minima
+      sites0 = sitesMin0
+      sites1 = sitesMin1
+    elif (trackMinMaxBoth == 1): #just maxima
+      sites0 = sitesMax0
+      sites1 = sitesMax1
+    else: #track min+max
+      sites0 = np.concatenate((sitesMin0,sitesMax0))
+      sites1 = np.concatenate((sitesMin1,sitesMax1))
       
-      areaLatCell = calc_areaLatStrips(lat, r)/nLon
-      
-      for iSite0, site0 in enumerate(siteInds0):
-        for iSite1, site1 in enumerate(siteInds1):
-          if (doOverlap[iSite0,iSite1]>0 and not doMatch[iSite0,iSite1]):
-            isMatch[iSite0,iSite1] += filterCorrespondence_velDistance_extremum(site0, u0, v0, site1, u1, v1, 
-                                                      lat, lon, r, dt)
-      print "Number of correspondences after velDistance_extr threshold: {0}".format(np.sum(isMatch))
+    #time correspondence ------------------
+    isMatch = correspond(sites0, cell2Site0, u0, v0, dt,
+                         sites1, cell2Site1, u1, v1, mesh,
+                         trackMinMaxBoth, fracOverlapThresh)
+                         
+    write_seg_iTime(fCorr, iTime, sites0, sites1, isMatch)
+  
+  fCorr.close()
+  
+def write_seg_iTime(f, iTime, sites0, sites1, isMatch):
+  '''
+  format is:
+  Time iTime0 nSites0
+  site0[0] nCorrespondingSites1 : correspondingSites1
+  site0[1] nCorrespondingSites1 : correspondingSites1
+  ...
+  Time iTime1 nSites0
+  ...
+  '''
+  
+  nSites0 = len(sites0); nSites1 = len(sites1)
+  
+  s = 'Time {0} {1}\n'.format(iTime, nSites0)
+  f.write(s)
+  for iSite0 in xrange(nSites0):
+    corrSites = sites1[isMatch[iSite0,:]>0]
+    nCorr = len(corrSites)
+    s = '{0} {1} : '.format(sites0[iSite0], nCorr)
+    sCorr = '\n'
+    if (nCorr>0):
+      sCorr = np.array_str(corrSites, max_line_width=100000000000000)[1:-1]+'\n' #to skip the brackets
+    f.write(s+sCorr)
     
-    #plot correspondences
-    iLat0, iLon0 = segment_ll_flat.index_1dTo2d(siteInds0, nLon)
-    r2d = 180./np.pi
-    lat0 = lat[iLat0]*r2d; lon0 = lon[iLon0]*r2d
-    iLat1, iLon1 = segment_ll_flat.index_1dTo2d(siteInds1, nLon)
-    lat1 = lat[iLat1]*r2d; lon1 = lon[iLon1]*r2d
-    
+def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
+
+  f = open(fCorr,'r')
+  
+  m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
+  r2d = 180./np.pi
+  
+  while(nTimes>0):
     plt.figure()
-    m = Basemap(projection='ortho',lon_0=0,lat_0=90, resolution='l')
-    x0,y0 = m(lon0, lat0); x1,y1 = m(lon1, lat1);
-
     m.drawcoastlines()
-    m.drawmapboundary()
     
-    for iSite0 in xrange(nSites0):
+    s = f.readline(); line = s.strip().split()
+    iTime = int(line[1]); nSites0 = int(line[2])
+    for iSite in xrange(nSites0):
+      s = f.readline(); line = s.strip().split()
+      site0 = int(line[0]); nSites1 = int(line[1])
+      if (nSites1<1):
+        continue
+      sites1 = [int(i) for i in line[3:]]
+      
+      lat0, lon0 = mesh.get_latLon_inds(site0)
+      lat1, lon1 = mesh.get_latLon_inds(np.array(sites1,dtype=int))
+      lat0 = lat0*r2d; lon0 = lon0*r2d;
+      lat1 = lat1*r2d; lon1 = lon1*r2d
+      
+      x0,y0 = m(lon0,lat0)
+      m.scatter(x0,y0, marker='+', color='g', s=40)
       for iSite1 in xrange(nSites1):
-        '''
-        #blue-correspond, red-not
-        col = 'r'
-        if (doOverlap[iSite0,iSite1]>0):
-          col = 'b'
-        m.drawgreatcircle(lon0[iSite0], lat0[iSite0], lon1[iSite1], lat1[iSite1], del_s=100.0, color=col)
-        '''
-        if (isMatch[iSite0,iSite1]>0):
-          col = 'b'
-          m.drawgreatcircle(lon0[iSite0], lat0[iSite0], lon1[iSite1], lat1[iSite1], del_s=100.0, color=col)
-          m.scatter(x0[iSite0], y0[iSite0], marker='+', color='g', s=40)
-          m.scatter(x1[iSite1], y1[iSite1], marker='o', color='r')
-    fInfo = fSeg0.split('/')[-1]
-    fNameSave = fDir+fInfo+'.png'
-    plt.savefig(fNameSave, bbox_inches='tight'); plt.close()
-    #plt.show()
+        m.drawgreatcircle(lon0, lat0, lon1[iSite1], lat1[iSite1], del_s=100.0, color='b')
+        x1,y1 = m(lon1[iSite1], lat1[iSite1])
+        m.scatter(x1,y1, marker='o', color='r', s=15)
     
-    #save track information
-    #matches 0-1
-    fInfo = fSeg0.split('/')[-1]
-    fNameSave = 'track_'+fInfo+'.npz'
-    f = fDir+fNameSave
-    print "Saving track info to file "+f
-    np.savez(f, sites0=siteInds0, sites1=siteInds1, isMatch=isMatch)
+    if (False):
+      plt.show()
+    else:
+      fName = 'corr_{0}.png'.format(iTime)
+      fSave = fDirSave+fName
+      print "Saving file to: "+fSave
+      plt.savefig(fSave); plt.close()
+      
+    nTimes = nTimes-1
+  
+  f.close()
 
-def demo_plotSegHistory():
-  
-  #fDirSave = '/data02/cases/2014/segment/seg_dFilter_300km/'
-  #fnames_metr = sorted(glob.glob('/data02/cases/2014/gfs_4_20140101_00*.nc'))
-  #fnames_seg = sorted(glob.glob('/data02/cases/2014/segment/seg_dFilter_300km/seg_gfs_4_20140101*.npz'))
-  
-  #dirData = '/data02/cases/2006/cfsr_anl/seg/'
-  #fDirSave = '/data02/cases/2006/cfsr_anl/basins/' #to save
-  dirData = '/data02/cases/2006/eraI/seg/'
-  fDirSave = dirData
-  fnames_metr = sorted(glob.glob(dirData+'fields_*.npz'))
-  fnames_seg = sorted(glob.glob(dirData+'seg_*.npz'))
-  
-  nFiles = len(fnames_seg)
-  print "Saving seg history plots in "+fDirSave
-  for iFile in xrange(nFiles):
-    fSeg = fnames_seg[iFile]; fMetr = fnames_metr[iFile]
-    fSave = 'test_'+fSeg.split('/')[-1]+'.png'
-    demo_plotSeg_from_npz(fSeg, fMetr, fDirSave+fSave)
 
 

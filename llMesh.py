@@ -143,7 +143,8 @@ class Mesh(object):
   
   def get_closestCell2Pt(self, latPt, lonPt):
     iLat, iLon = self.find_closestCell2Pt_ll(latPt, lonPt)
-    return helpers.flatten_2dTo1d(iLat, iLon, self.nLon)
+    #print 'delta lat/lon', latPt-self.lat[iLat], lonPt-self.lon[iLon]
+    return helpers.index_2dTo1d(iLat, iLon, self.nLon)
   
   def fill_inRegion(self, latThresh):
     self.inRegion[self.lat<latThresh,:] = 0
@@ -159,6 +160,10 @@ class Mesh(object):
   def get_latLon_inds(self, inds):
     iLats, iLons = helpers.index_1dTo2d(inds, self.nLon)
     return (self.lat[iLats], self.lon[iLons])
+    
+  def get_area_inds(self, inds):
+    iLats, iLons = helpers.index_1dTo2d(inds, self.nLon)
+    return self.areaCell[iLats]
     
 class Cell(object):
   def __init__(self,mesh,ind):

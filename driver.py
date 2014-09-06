@@ -6,6 +6,7 @@ import my_settings
 import preProcess
 import llMesh
 import segment
+import correspond
 
 def demo():
   #setup -----------------
@@ -14,6 +15,7 @@ def demo():
   fMesh = filesData[0]  
   fMetr = my_settings.fDirSave+'fields_debug.nc'
   fSeg = my_settings.fDirSave+'seg_debug.nc'
+  fCorr = my_settings.fDirSave+'correspond_debug.txt'
   
   rEarth = my_settings.rEarth
   dRegion = my_settings.dFilter
@@ -34,13 +36,19 @@ def demo():
   
   dataMetr = netCDF4.Dataset(fMetr,'r')
   #segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
-  
-  segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+  #segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   dataMetr.close()
   
   #spatial metrics ------------------------
   
   #time correspondence -----------------
+  dataMetr = netCDF4.Dataset(fMetr,'r')
+  dataSeg = netCDF4.Dataset(fSeg,'r')
+  correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, .2, 0, 19)
+  correspond.plot_correspondences(my_settings.fDirSave, fCorr, 19, mesh)
+  dataMetr.close()
+  dataSeg.close()
+  
   
   #time tracks -------------------------
   

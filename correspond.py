@@ -282,5 +282,40 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
   
   f.close()
 
+def read_seg_iTime(fName, iTimeIn):
+  #read/return correspondences for the specified time index
+  
+  f = open(fName, 'r')
+  
+  iTime = -1; nSites0 = -1
+  while (iTime != iTimeIn):
+    s = f.readline(); line = s.strip().split()
+    if ('Time' != line[0]):
+      continue
+    iTime = int(line[1]); nSites0 = int(line[2])
+    
+  #now at the proper time (assuming time is in file)  
+  allSites0 = np.empty(nSites0, dtype=int)
+  allSites1 = [[] for i in xrange(nSites0)]
+  for iSite in xrange(nSites0):
+    s = f.readline(); line = s.strip().split()
+    site0 = int(line[0]); nSites1 = int(line[1])
+    
+    allSites0[iSite] = site0
+    
+    if (nSites1<1):
+      continue
+    sites1 = [int(i) for i in line[3:]]
+    
+    allSites1[iSite] = sites1
+  
+  f.close()  
+  return (allSites0, allSites1)
 
-
+def get_correspondingSites(fName, iTime, site):
+  allSites0, corrSites = read_seg_iTime(fName, iTime)
+  if (site not in allSites0):
+    print "Uhoh, site doesn't correspond to another..."
+    print site, allSites0
+  iSite = np.where(allSites0==site)[0][0]
+  return corrSites[iSite]

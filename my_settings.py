@@ -16,5 +16,14 @@ fDirData = '/data02/cases/summer2006/eraI/pv/'
 filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-07-20*.nc'), key=os.path.getmtime)
 deltaT = 6.*60.*60. #time frequency (s)
 
+#iTimeStart = 0
+#iTimeEnd = 19
+
 fDirSave = '/data02/cases/test_segment/testUnified/'
 info = 'eraI_45N_test'
+fMesh = filesData[0]  
+fMetr = fDirSave+'fields_debug.nc'
+fSeg = fDirSave+'seg_debug.nc'
+fCorr = fDirSave+'correspond_debug.txt'
+fTrack = fDirSave+'tracks_debug.txt'
+fMetrics = fDirSave+'metrics_debug.nc'

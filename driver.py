@@ -6,6 +6,7 @@ import my_settings
 import preProcess
 import llMesh
 import segment
+import basinMetrics
 import correspond
 import tracks
 
@@ -13,11 +14,12 @@ def demo():
   #setup -----------------
   info = my_settings.info
   filesData = my_settings.filesData
-  fMesh = filesData[0]  
-  fMetr = my_settings.fDirSave+'fields_debug.nc'
-  fSeg = my_settings.fDirSave+'seg_debug.nc'
-  fCorr = my_settings.fDirSave+'correspond_debug.txt'
-  fTrack = my_settings.fDirSave+'tracks_debug.txt'
+  fMesh = my_settings.fMesh  
+  fMetr = my_settings.fMetr
+  fSeg = my_settings.fSeg
+  fCorr = my_settings.fCorr
+  fTrack = my_settings.fTrack
+  fMetrics = my_settings.fMetrics
   
   rEarth = my_settings.rEarth
   dRegion = my_settings.dFilter
@@ -27,20 +29,25 @@ def demo():
   #mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
   mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh) #if already processed input data
   
-  if (False):
-    print mesh.lat; print mesh.nLat
-    print mesh.lon; print mesh.nLon
-  
-  #segment --------------------------
   cell0 = llMesh.Cell(mesh,0)
   print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   
+  #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r')
   #segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
   #segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   dataMetr.close()
   
   #spatial metrics ------------------------
+  dataMetr = netCDF4.Dataset(fMetr,'r')
+  dataSeg = netCDF4.Dataset(fSeg,'r')
+  
+  #basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, 19)
+  
+  dataMetr.close()
+  dataSeg.close()
+  
+  basinMetrics.print_metrics(fMetrics)
   
   #time correspondence -----------------
   dataMetr = netCDF4.Dataset(fMetr,'r')
@@ -52,8 +59,8 @@ def demo():
   
   #time tracks -------------------------
   #tracks.run_tracks(fTrack, fCorr, 6, 19-1)
-  for iTime in xrange(19-1, -1, -1):
-    tracks.run_tracks(fTrack, fCorr, iTime, 19-1)
+  #for iTime in xrange(19-1, -1, -1):
+    #tracks.run_tracks(fTrack, fCorr, iTime, 19-1)
   
   #time metrics ----------------------
 

@@ -190,4 +190,15 @@ def print_metrics(fName):
       print "Time ", iTime, key; print vals
   
   data.close()
+
+def get_metrics_basin(data, iTime, site):
   
+  vals = []
+  sites = data.variables['sites'][iTime,:]
+  iSite = np.where(sites==site)[0][0]
+  
+  for key in metricKeys:
+    vals.append(data.variables[key][iTime,iSite])
+    
+  return vals
+

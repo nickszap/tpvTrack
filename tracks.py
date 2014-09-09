@@ -2,11 +2,12 @@
 #We want tracks that extend over the lifetime of each/all basins
 
 import numpy as np
+import netCDF4
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from mpl_toolkits.basemap import Basemap
 
-#import basinMetrics
+import basinMetrics
 import correspond
 
 r2d = 180./np.pi
@@ -89,68 +90,6 @@ def form_1To1Track(basinTrack, site0):
   
   return basinTrack
 
-def writeFile_tracks(fSave, basinTrack, filesTrack, filesMetrics):
-  '''
-  format is:
-  (header) nTracks metric1 metric2 ...
-  nTimesTrack1
-  (time1) metric1 metric2 ... for track1
-  (time2) metric1 metric2 ... for track1
-  -1
-  nTimesTrack2
-  (time1) metric1 metric2 ... for track2
-  (time2) metric1 metric2 ... for track2
-  -1
-  .
-  .
-  .
-  '''
-  
-  f = open(fSave,'w')
-  nTracks = len(basinTrack)
-  
-  #write header
-  fMetric = filesMetrics[0]
-  data = np.load(fMetric)
-  metricNames = [i for i in data]
-  data.close()
-  headerString = str(nTracks)+' '+' '.join(metricNames)
-  f.write(headerString+'\n')
-  
-  s = ''
-  for iTrack in xrange(nTracks):
-    trackSeq = basinTrack[iTrack]
-    nTimes = len(trackSeq)
-    s += str(nTimes)+'\n'
-    for iTime in xrange(nTimes):
-      fTrack = filesTrack[iTime]
-      fMetric = filesMetrics[iTime]
-      
-      #figure out index of this basin at this time in the metrics data
-      site = trackSeq[iTime]
-      if (site<0): #track doesn't start till later times
-        continue
-      data = np.load(fTrack)
-      sites0 = list(data['sites0']);
-      data.close()
-      iBasin = sites0.index(site)
-      
-      #grab the metrics at this time for this basin
-      data = np.load(fMetric)
-      vals = [data[key][iBasin] for key in metricNames]
-      data.close()
-      #valsStr = np.array_str(vals, max_line_width=1000000)
-      valsStr = str(vals)[1:-1] #leave out [ and ]
-      s += valsStr+'\n'
-    #end iTime  
-    s += '-1\n'
-    f.write(s); s = ''
-  #end iTrack
-    
-  #f.write(s)
-  
-  f.close()
-
 def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0):
   # follow a given site throughout the correspondences "tree" and split tree into individual tracks
   
@@ -181,13 +120,13 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0):
 def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0):
   trackList = []
   for site in sites0:
-    print "Forming tracks for site {0} at time {1}".format(site, iTimeStart)
+    print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
     siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site)
     trackList.extend(siteTracks)
     
   return trackList
   
-def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd):
+def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics=''):
   
   iTime = iTimeStart
   sites0, corrSites = correspond.read_seg_iTime(fCorr, iTime)
@@ -210,6 +149,14 @@ def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd):
   
   trackList = form_tracks_iTime(fCorr, iTimeStart, iTimeEnd, sites0)
   
+  if (fMetrics==''):
+    write_tracks_cells(fNameTracks, trackList)
+  else:
+    dataMetrics = netCDF4.Dataset(fMetrics,'r')
+    write_tracks_metrics_iTime(fNameTracks, iTimeStart, trackList, dataMetrics)
+    dataMetrics.close()
+
+def write_tracks_cells(fNameTracks, trackList):
   print "Appending to file: "+fNameTracks
   f = open(fNameTracks,'a')
   for track in trackList:
@@ -217,3 +164,43 @@ def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd):
     f.write(s+'\n')
   f.close()
   
+def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
+  '''
+  format is:
+  (header) nTracks metric1 metric2 ...
+  timeStartTrack1 nTimesTrack1
+  (time1) metric1 metric2 ... for track1
+  (time2) metric1 metric2 ... for track1
+  -1
+  timeStartTrack2 nTimesTrack2
+  (time1) metric1 metric2 ... for track2
+  (time2) metric1 metric2 ... for track2
+  -1
+  .
+  .
+  .
+  '''
+  
+  f = open(fSave,'a')
+  
+  for track in trackList:
+    s = ''
+    nTimes = len(track);
+    s += '{0} {1}\n'.format(iTime0, nTimes)
+    for iTime in xrange(nTimes):
+      site = track[iTime]
+      vals = basinMetrics.get_metrics_basin(dataMetrics, iTime+iTime0, site)
+      
+      valsStr = '';
+      for val in vals:
+        valsStr += '{0:g} '.format(val)
+      #valsStr = str(vals)[1:-1]
+      s += valsStr+'\n'
+    #end iTime  
+    s += '-1\n'
+    f.write(s); s = ''
+  #end iTrack
+  
+  f.close()
+
+

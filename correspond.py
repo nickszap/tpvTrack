@@ -163,10 +163,11 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   #these really end up needing to include matches not found in fracOverlap
   #when consider cases like small TPVs breaking off of a large one
   
-  #decide correspondence --------------------------
+  #decide whether sites correspond --------------------------
   isMatch = fracOverlap>fracOverlapThresh
   print "Number of matches from correspondence: {0}".format(np.sum(isMatch))
   
+  #decide type of site correspondence (major vs. minor) ------------------
   return isMatch
 
 def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt, 
@@ -210,11 +211,11 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
                          sites1, cell2Site1, u1, v1, mesh,
                          trackMinMaxBoth, fracOverlapThresh)
                          
-    write_seg_iTime(fCorr, iTime, sites0, sites1, isMatch)
+    write_corr_iTime(fCorr, iTime, sites0, sites1, isMatch)
   
   fCorr.close()
   
-def write_seg_iTime(f, iTime, sites0, sites1, isMatch):
+def write_corr_iTime(f, iTime, sites0, sites1, isMatch):
   '''
   format is:
   Time iTime0 nSites0
@@ -282,7 +283,7 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
   
   f.close()
 
-def read_seg_iTime(fName, iTimeIn):
+def read_corr_iTime(fName, iTimeIn):
   #read/return correspondences for the specified time index
   
   f = open(fName, 'r')
@@ -313,7 +314,7 @@ def read_seg_iTime(fName, iTimeIn):
   return (allSites0, allSites1)
 
 def get_correspondingSites(fName, iTime, site):
-  allSites0, corrSites = read_seg_iTime(fName, iTime)
+  allSites0, corrSites = read_corr_iTime(fName, iTime)
   if (site not in allSites0):
     print "Uhoh, site doesn't correspond to another..."
     print site, allSites0

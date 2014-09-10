@@ -129,15 +129,17 @@ def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0):
 def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics=''):
   
   iTime = iTimeStart
-  sites0, corrSites = correspond.read_corr_iTime(fCorr, iTime)
+  sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime)
   nSites0 = len(sites0)
   notInPrev = np.ones(nSites0,dtype=int)
   
+  #sub-select possible tracks: --------------------
+  #-major tracks
+  #-tracks that start at this time
+  #-tracks that started before this time
+  
   if (iTime>0):
-    #we can select:
-    #-tracks that start at this time
-    #-tracks that started before this time
-    sites0Prev, corrSites = correspond.read_corr_iTime(fCorr, iTime-1)
+    sites0Prev, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime-1)
     for iSite in xrange(nSites0):
       for basins in corrSites:
         if sites0[iSite] in basins:

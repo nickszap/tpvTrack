@@ -7,6 +7,7 @@ import numpy as np
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
 dFilter = 300.e3 #radius for whether nbr extremum is regional extremum
+areaOverlap = .2 #fraction of tpv area overlap for determining correspondence
 
 latThresh = 45.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max, 2-both

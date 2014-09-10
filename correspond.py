@@ -2,7 +2,9 @@ import numpy as np
 import netCDF4
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
-  
+
+import basinMetrics
+
 def advect_LatLon(u, v, latIn, lonIn, dt, r ):
   #return new lat/lon coordinates based on:
   #u,v in m/s, lat/lon in radians, dt in s, rSphere in m
@@ -139,13 +141,14 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
   
   if (True):
     #print out some quick diagnostics
-    print "For overlapping advection", fracOverlap
+    print "Fractional area of overlapping advection\n", fracOverlap
   
   return fracOverlap
 
 def correspond(sites0, cell2Site0, u0, v0, dt, 
                sites1, cell2Site1, u1, v1, mesh,
-               trackMinMaxBoth, fracOverlapThresh):
+               trackMinMaxBoth, fracOverlapThresh,
+               iTime0, dataMetrics):
   
   #area overlap -------------------
   fracOverlap = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh)
@@ -168,10 +171,50 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   print "Number of matches from correspondence: {0}".format(np.sum(isMatch))
   
   #decide type of site correspondence (major vs. minor) ------------------
-  return isMatch
+  #0-noMatch, 1-minor, 2-major
+  nSites0 = len(sites0); nSites1 = len(sites1);
+  
+  #major time0->time1
+  typeMatch01 = isMatch.copy().astype(int)
+  for iSite0 in xrange(nSites0):
+    site0 = sites0[iSite0]
+    corrSites = sites1[isMatch[iSite0,:]>0]
+    
+    if (len(corrSites)<1):
+      continue
+    if (len(corrSites)==1):
+      site1 = corrSites[0]
+      typeMatch01[iSite0,sites1==site1] = 2
+    else:
+      d = basinMetrics.calc_diff_metricSpace(dataMetrics, iTime0, site0, iTime0+1, corrSites, mesh.r/1.e3)
+      minInd = np.argmin(d)
+      similarSite = corrSites[minInd]
+      typeMatch01[iSite0,sites1==similarSite] = 2
+  
+  #major time1<-time0 
+  typeMatch10 = isMatch.copy().astype(int)
+  for iSite1 in xrange(nSites1):
+    site1 = sites1[iSite1]
+    corrSites = sites0[isMatch[:,iSite1]>0]
+    
+    if (len(corrSites)<1):
+      continue
+    if (len(corrSites)==1):
+      site0 = corrSites[0]
+      typeMatch10[sites0==site0,iSite1] = 2
+    else:
+      d = basinMetrics.calc_diff_metricSpace(dataMetrics, iTime0+1, site1, iTime0, corrSites, mesh.r/1.e3)
+      minInd = np.argmin(d)
+      similarSite = corrSites[minInd]
+      typeMatch10[sites0==similarSite,iSite1] = 2
+  
+  typeMatch = np.minimum(typeMatch01, typeMatch10) #e.g., site0.a-site1 not major if site0.a splits from site0 into site1 but site0.b more similar to site1
+  print "Number of {0}s in 0->1 and 1<-0: {1}, {2}".format(2, np.sum(typeMatch01==2), np.sum(typeMatch10==2))
+  print "Number of -major- correspondences: {0}".format(np.sum(typeMatch==2))
+  return typeMatch
 
 def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt, 
-                   trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd):
+                   trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd, dataMetrics):
   
   #write tracks to a text file?
   fCorr = open(fNameOut,'w')
@@ -207,20 +250,21 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
       sites1 = np.concatenate((sitesMin1,sitesMax1))
       
     #time correspondence ------------------
-    isMatch = correspond(sites0, cell2Site0, u0, v0, dt,
+    typeMatch = correspond(sites0, cell2Site0, u0, v0, dt,
                          sites1, cell2Site1, u1, v1, mesh,
-                         trackMinMaxBoth, fracOverlapThresh)
+                         trackMinMaxBoth, fracOverlapThresh,
+                         iTime, dataMetrics)
                          
-    write_corr_iTime(fCorr, iTime, sites0, sites1, isMatch)
+    write_corr_iTime(fCorr, iTime, sites0, sites1, typeMatch)
   
   fCorr.close()
   
-def write_corr_iTime(f, iTime, sites0, sites1, isMatch):
+def write_corr_iTime(f, iTime, sites0, sites1, typeMatch):
   '''
   format is:
   Time iTime0 nSites0
-  site0[0] nCorrespondingSites1 : correspondingSites1
-  site0[1] nCorrespondingSites1 : correspondingSites1
+  site0[0] nCorrespondingSites1 : correspondingSites1[0] corrType correspondingSites1[1] corrType ...
+  site0[1] nCorrespondingSites1 : correspondingSites1 corrType
   ...
   Time iTime1 nSites0
   ...
@@ -231,12 +275,16 @@ def write_corr_iTime(f, iTime, sites0, sites1, isMatch):
   s = 'Time {0} {1}\n'.format(iTime, nSites0)
   f.write(s)
   for iSite0 in xrange(nSites0):
-    corrSites = sites1[isMatch[iSite0,:]>0]
-    nCorr = len(corrSites)
+    corr1 = typeMatch[iSite0,:]
+    corrSites = sites1[corr1>0]; nCorr = len(corrSites)
+    typeCorr = corr1[corr1>0]
+    
     s = '{0} {1} : '.format(sites0[iSite0], nCorr)
-    sCorr = '\n'
+    sCorr = ''
     if (nCorr>0):
-      sCorr = np.array_str(corrSites, max_line_width=100000000000000)[1:-1]+'\n' #to skip the brackets
+      for iCorr in xrange(nCorr):
+        sCorr += '{0} {1} '.format(corrSites[iCorr], typeCorr[iCorr])
+    sCorr += '\n'
     f.write(s+sCorr)
     
 def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
@@ -298,6 +346,7 @@ def read_corr_iTime(fName, iTimeIn):
   #now at the proper time (assuming time is in file)  
   allSites0 = np.empty(nSites0, dtype=int)
   allSites1 = [[] for i in xrange(nSites0)]
+  typesCorr = [[] for i in xrange(nSites0)]
   for iSite in xrange(nSites0):
     s = f.readline(); line = s.strip().split()
     site0 = int(line[0]); nSites1 = int(line[1])
@@ -306,17 +355,20 @@ def read_corr_iTime(fName, iTimeIn):
     
     if (nSites1<1):
       continue
-    sites1 = [int(i) for i in line[3:]]
+        
+    sites1 = [int(i) for i in line[3::2]]
+    typesCorr = [int(i) for i in line[4::2]]
     
     allSites1[iSite] = sites1
+    typesCorr[iSite] = typesCorr
   
   f.close()  
-  return (allSites0, allSites1)
+  return (allSites0, allSites1, typesCorr)
 
 def get_correspondingSites(fName, iTime, site):
-  allSites0, corrSites = read_corr_iTime(fName, iTime)
+  allSites0, corrSites, typeCorr = read_corr_iTime(fName, iTime)
   if (site not in allSites0):
     print "Uhoh, site doesn't correspond to another..."
     print site, allSites0
   iSite = np.where(allSites0==site)[0][0]
-  return corrSites[iSite]
+  return (corrSites[iSite], typeCorr[iSite])

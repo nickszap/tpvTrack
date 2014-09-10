@@ -288,24 +288,22 @@ def write_corr_iTime(f, iTime, sites0, sites1, typeMatch):
     f.write(s+sCorr)
     
 def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
-
-  f = open(fCorr,'r')
   
   m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
   r2d = 180./np.pi
   
-  while(nTimes>0):
+  for iTime in xrange(nTimes):
     plt.figure()
     m.drawcoastlines()
     
-    s = f.readline(); line = s.strip().split()
-    iTime = int(line[1]); nSites0 = int(line[2])
+    allSites0, corrSites, typesCorr = read_corr_iTime(fCorr, iTime)
+    nSites0 = len(allSites0)
     for iSite in xrange(nSites0):
-      s = f.readline(); line = s.strip().split()
-      site0 = int(line[0]); nSites1 = int(line[1])
+      site0 = allSites0[iSite]
+      sites1 = corrSites[iSite]; nSites1 = len(sites1)
+      minorMajor = typesCorr[iSite]
       if (nSites1<1):
         continue
-      sites1 = [int(i) for i in line[3:]]
       
       lat0, lon0 = mesh.get_latLon_inds(site0)
       lat1, lon1 = mesh.get_latLon_inds(np.array(sites1,dtype=int))
@@ -313,11 +311,14 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
       lat1 = lat1*r2d; lon1 = lon1*r2d
       
       x0,y0 = m(lon0,lat0)
-      m.scatter(x0,y0, marker='+', color='g', s=40)
+      m.scatter(x0,y0, marker='+', color='g', s=55)
       for iSite1 in xrange(nSites1):
-        m.drawgreatcircle(lon0, lat0, lon1[iSite1], lat1[iSite1], del_s=100.0, color='b')
+        c = 'r'; lw=.5
+        if (minorMajor[iSite1]>1):
+          c='b'; lw=2
+        m.drawgreatcircle(lon0, lat0, lon1[iSite1], lat1[iSite1], del_s=50.0, color=c, lw=lw)
         x1,y1 = m(lon1[iSite1], lat1[iSite1])
-        m.scatter(x1,y1, marker='o', color='r', s=15)
+        m.scatter(x1,y1, marker='o', color='r', s=20)
     
     if (False):
       plt.show()
@@ -327,10 +328,6 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
       print "Saving file to: "+fSave
       plt.savefig(fSave); plt.close()
       
-    nTimes = nTimes-1
-  
-  f.close()
-
 def read_corr_iTime(fName, iTimeIn):
   #read/return correspondences for the specified time index
   
@@ -339,6 +336,8 @@ def read_corr_iTime(fName, iTimeIn):
   iTime = -1; nSites0 = -1
   while (iTime != iTimeIn):
     s = f.readline(); line = s.strip().split()
+    if (line==[]):
+      print "Uhoh. Reached end of file?"
     if ('Time' != line[0]):
       continue
     iTime = int(line[1]); nSites0 = int(line[2])
@@ -357,10 +356,10 @@ def read_corr_iTime(fName, iTimeIn):
       continue
         
     sites1 = [int(i) for i in line[3::2]]
-    typesCorr = [int(i) for i in line[4::2]]
+    minorMajor = [int(i) for i in line[4::2]]
     
     allSites1[iSite] = sites1
-    typesCorr[iSite] = typesCorr
+    typesCorr[iSite] = minorMajor
   
   f.close()  
   return (allSites0, allSites1, typesCorr)

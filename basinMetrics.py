@@ -209,8 +209,7 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   #measures can include: distance, diffArea, diffIntensity,...
   
   #ansatz: |theta_i-theta_0| and distance are useful for discrimating differences
-  diffKeys = ['thetaExtr', 'latExtr', 'lonExtr']; nKeys = len(diffKeys)
-  d2r = np.pi/180.; facKeys = [1., d2r, d2r] #since lat/lon stored in degrees (for readability?)
+  diffKeys = ['thetaExtr', 'vortMean', 'rEquiv', 'latExtr']; nKeys = len(diffKeys)
   
   #get site0 and sites1 measures ---------
   
@@ -222,7 +221,7 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   iSite = np.where(sites==site0)[0][0]
   for iKey in xrange(nKeys):
     key = diffKeys[iKey]
-    val = data.variables[key][iTime,iSite]*facKeys[iKey]
+    val = data.variables[key][iTime,iSite]
     vals0[iKey] = val
     
   #sites1
@@ -233,7 +232,7 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   sites = data.variables['sites'][iTime,:]
   for iKey in xrange(nKeys):
     key = diffKeys[iKey]
-    vals = data.variables[key][iTime,:]*facKeys[iKey]
+    vals = data.variables[key][iTime,:]
     for iSite1 in xrange(nSites1):
       site1 = sites1[iSite1]
       ind = np.where(sites==site1)[0][0]
@@ -243,21 +242,20 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   #end iKey
    
   #calc difference measures --------------------------
-  diffMeasures = np.empty((2, nSites1), dtype=float)
+  diffMeasures = np.empty((nKeys, nSites1), dtype=float)
   
-  #thetaDiff
-  diffMeasures[0,:] = np.absolute(vals1[0,:]-vals0[0])
-  
-  #distance (always >=0 already)
-  diffMeasures[1,:] = helpers.calc_distSphere_multiple(r, vals0[1], vals0[2], vals1[1,:], vals1[2,:])
+  for iKey in xrange(nKeys):
+    diffMeasures[iKey,:] = np.absolute(vals1[iKey,:]-vals0[iKey])
   
   #print vals0; print vals1; 
   #print diffMeasures
   
   #return "distances" in metric space -------------------
-  #imagine that dTheta~2,5,10,25K, distance~60,100,300,1000km...so want a way to aggregate
+  #imagine that dTheta~2,5,10,25K, distance~60,100,300,1000km, vortMean~1.e-5...so want a way to aggregate
   #d = sum( diffMeasures_i/mean(diffMeasures_i) )...normalized deviations?
-  d = diffMeasures[0,:]/np.mean(diffMeasures[0,:])+diffMeasures[1,:]/np.mean(diffMeasures[1,:])
+  d = np.zeros(nSites1, dtype=float)
+  for iKey in xrange(nKeys):
+    d += diffMeasures[iKey,:]/np.mean(diffMeasures[iKey,:])
    
   return d
 

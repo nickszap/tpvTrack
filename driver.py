@@ -53,8 +53,8 @@ def demo():
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
   dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-  correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
-  #correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes, mesh)
+  #correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
+  correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
   
   dataMetrics.close()
   dataSeg.close()

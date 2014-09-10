@@ -202,3 +202,57 @@ def get_metrics_basin(data, iTime, site):
     
   return vals
 
+def calc_diff_metricSpace(dataMetrics, iTime0, site0, iTime1, sites1, mesh):
+  #here, we're calculating something like a metric in a metric space so value >= 0.
+  #Input sites1 as list,array,...index-able
+  #return "distance" for >=1 basins from a reference basin.
+  #measures can include: distance, diffArea, diffIntensity,...
+  
+  #ansatz: |theta_i-theta_0| and distance are useful for discrimating differences
+  diffKeys = ['thetaExtr', 'latExtr', 'lonExtr']; nKeys = len(diffKeys)
+  
+  #read in site0 and sites1 measures ---------
+  
+  #site0
+  vals0 = np.empty(nKeys, dtype=float)
+  
+  iTime = iTime0
+  sites = data.variables['sites'][iTime,:]
+  iSite = np.where(sites==site)[0][0]
+  for iKey in xrange(nKeys):
+    key = diffKeys[iKey]
+    val = data.variables[key][iTime,iSite]
+    vals0[iKey] = val
+    
+  #sites1
+  nSites1 = len(sites1)
+  vals1 = np.empty((nKeys, nSites1),dtype=float) #ordered so columns hold keyValues for all sites (better cache?)
+  
+  iTime = iTime1
+  sites = data.variables['sites'][iTime,:]
+  for iKey in xrange(nKeys):
+    vals = data.variables[key][iTime,:]
+    for iSite1 in xrange(nSites1):
+      site1 = sites1[iSite1]
+      ind = np.where(sites==site1)[0][0]
+      val = vals[ind]
+      vals1[iKey, iSite1] = val
+    #end iSite1  
+   #end iKey
+   
+   #calc difference measures --------------------------
+   diffMeasures = np.empty((2,nSites1),dtype=float)
+   
+   #thetaDiff
+   diffMeasures[0,:] = np.absolute(vals1[0,:]-vals0[0])
+   
+   #distance (always >=0 already)
+   diffMeasures[1,:] = helpers.calc_distSphere_multiple(mesh.r, vals0[1], vals0[2], vals1[1,:], vals1[2,:])
+   
+   #return "distances" in metric space -------------------
+   #to normalize the ranges of values, d = sum( diffMeasures_i/mean(diffMeasures_i) )
+   d = diffMeasures[0,:]/np.mean(diffMeasures[0,:])+diffMeasures[1,:]/np.mean(diffMeasures[1,:])
+   
+   return d
+   
+   

@@ -53,12 +53,13 @@ def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics=''):
   iTime = iTimeStart
   sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime)
   nSites0 = len(sites0)
-  notInPrev = np.ones(nSites0,dtype=int)
   
   #sub-select possible tracks: --------------------
   #-major tracks
   #-tracks that start at this time
   #-tracks that started before this time
+  
+  notInPrev = np.ones(nSites0,dtype=int)
   
   if (iTime>0):
     sites0Prev, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime-1)

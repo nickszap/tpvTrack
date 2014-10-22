@@ -2,6 +2,7 @@ import numpy as np
 import netCDF4
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
+import cPickle as pickle; pickleProtocol = 2
 
 import basinMetrics
 
@@ -216,8 +217,8 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
 def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt, 
                    trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd, dataMetrics):
   
-  #write tracks to a text file?
-  fCorr = open(fNameOut,'w')
+  #file for correspondences
+  fCorr = open(fNameOut,'wb')
   
   for iTime in xrange(iTimeStart,iTimeEnd): #iTimeEnd will be the end of the correspondences
     #segmentation data
@@ -262,30 +263,49 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
 def write_corr_iTime(f, iTime, sites0, sites1, typeMatch):
   '''
   format is:
-  Time iTime0 nSites0
-  site0[0] nCorrespondingSites1 : correspondingSites1[0] corrType correspondingSites1[1] corrType ...
-  site0[1] nCorrespondingSites1 : correspondingSites1 corrType
+  Time0 object
+  Time1 object
   ...
-  Time iTime1 nSites0
-  ...
+  
+  where each Timei object is
+  {iTime, sites0, correspondingSites1[iSite0][iCorrespondingSites1], correspondenceType[iSite0][iCorrespondingSites1]}
+  
+  according to http://stackoverflow.com/questions/12761991/how-to-use-append-with-pickle-in-python ,
+  pickle can work like:
+  >>> f=open('a.p', 'wb')
+  >>> pickle.dump({1:2}, f)
+  >>> pickle.dump({3:4}, f)
+  >>> f.close()
+  >>> 
+  >>> f=open('a.p', 'rb')
+  >>> pickle.load(f)
+  {1: 2}
+  >>> pickle.load(f)
+  {3: 4}
+  >>> pickle.load(f)
+  Traceback (most recent call last):
+    File "<stdin>", line 1, in <module>
+  EOFError
   '''
   
   nSites0 = len(sites0); nSites1 = len(sites1)
   
-  s = 'Time {0} {1}\n'.format(iTime, nSites0)
-  f.write(s)
+  obj = {'iTime':iTime, 'sites0':sites0}
+  allCorrSites = []
+  allCorrTypes = []
+  
   for iSite0 in xrange(nSites0):
     corr1 = typeMatch[iSite0,:]
     corrSites = sites1[corr1>0]; nCorr = len(corrSites)
     typeCorr = corr1[corr1>0]
     
-    s = '{0} {1} : '.format(sites0[iSite0], nCorr)
-    sCorr = ''
-    if (nCorr>0):
-      for iCorr in xrange(nCorr):
-        sCorr += '{0} {1} '.format(corrSites[iCorr], typeCorr[iCorr])
-    sCorr += '\n'
-    f.write(s+sCorr)
+    allCorrSites.append(corrSites)
+    allCorrTypes.append(typeCorr)
+  
+  obj['corrSites'] = allCorrSites
+  obj['corrTypes'] = allCorrTypes
+  
+  pickle.dump(obj,f,protocol=pickleProtocol)
     
 def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
   
@@ -323,7 +343,7 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
     if (False):
       plt.show()
     else:
-      fName = 'corr_{0}.png'.format(iTime)
+      fName = 'corr_debug_{0}.png'.format(iTime)
       fSave = fDirSave+fName
       print "Saving file to: "+fSave
       plt.savefig(fSave); plt.close()
@@ -331,38 +351,24 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
 def read_corr_iTime(fName, iTimeIn):
   #read/return correspondences for the specified time index
   
-  f = open(fName, 'r')
+  f = open(fName, 'rb')
   
-  iTime = -1; nSites0 = -1
-  while (iTime != iTimeIn):
-    s = f.readline(); line = s.strip().split()
-    if (line==[]):
-      print "Uhoh. Reached end of file?"
-    if ('Time' != line[0]):
-      continue
-    iTime = int(line[1]); nSites0 = int(line[2])
+  for iTime in xrange(iTimeIn): #will go [0,iTimeIn)
+    #get to serialized timestep in sequentially pickled objects
+    pickle.load(f)
     
-  #now at the proper time (assuming time is in file)  
-  allSites0 = np.empty(nSites0, dtype=int)
-  allSites1 = [[] for i in xrange(nSites0)]
-  typesCorr = [[] for i in xrange(nSites0)]
-  for iSite in xrange(nSites0):
-    s = f.readline(); line = s.strip().split()
-    site0 = int(line[0]); nSites1 = int(line[1])
-    
-    allSites0[iSite] = site0
-    
-    if (nSites1<1):
-      continue
-        
-    sites1 = [int(i) for i in line[3::2]]
-    minorMajor = [int(i) for i in line[4::2]]
-    
-    allSites1[iSite] = sites1
-    typesCorr[iSite] = minorMajor
+  #now at the proper time (assuming time is in file)
+  obj = pickle.load(f)
+  f.close()
   
-  f.close()  
-  return (allSites0, allSites1, typesCorr)
+  iTime = obj['iTime']
+  if (iTime != iTimeIn):
+    print "Uhoh. Time mismatch in unpickling file ", iTime, iTimeIn
+  sites0 = obj['sites0']
+  corrSites = obj['corrSites']
+  corrTypes = obj['corrTypes']
+  
+  return (sites0, corrSites, corrTypes)
 
 def get_correspondingSites(fName, iTime, site):
   allSites0, corrSites, typeCorr = read_corr_iTime(fName, iTime)

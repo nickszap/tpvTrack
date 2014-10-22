@@ -26,8 +26,8 @@ def demo():
   latThresh = my_settings.latThresh
   
   #pre-process ------------------------
-  mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
-  #mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh) #if already processed input data
+  #mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
+  mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh) #if already processed input data
   
   cell0 = llMesh.Cell(mesh,0)
   print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()

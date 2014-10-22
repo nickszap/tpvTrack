@@ -54,17 +54,17 @@ def demo():
   dataSeg = netCDF4.Dataset(fSeg,'r')
   dataMetrics = netCDF4.Dataset(fMetrics, 'r')
   #correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
-  correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
+  #correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
   
   dataMetrics.close()
   dataSeg.close()
   dataMetr.close()
   
   #time tracks -------------------------
-  #tracks.run_tracks(fTrack, fCorr, 0, nTimes-2)
   #for iTime in xrange(nTimes-2, -1, -1):
     #tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2, fMetrics=fMetrics)
     #tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2)
+  tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
   
   #time metrics ----------------------
 

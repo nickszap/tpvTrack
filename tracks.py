@@ -12,7 +12,7 @@ import correspond
 
 r2d = 180./np.pi
 
-def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0):
+def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor=False):
   # follow a given site throughout the correspondences "tree" and split tree into individual tracks
   
   tracks_checkContinue = [[site0]]
@@ -27,14 +27,21 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0):
       trackList.append(basinTrack)
       continue
     
-    corrSites = correspond.get_correspondingSites(fNameCorr, iTime, site0)
+    corrSites, corrTypes = correspond.get_correspondingSites(fNameCorr, iTime, site0)
     if (len(corrSites)<1): #don't connect to future site
       trackList.append(basinTrack)
       continue
       
-    #if here, connect to >=1 future sites so can continue track
-    for site1 in corrSites:
+    #if here, site0 connects to >=1 future sites so can continue track
+    nSites1 = len(corrSites)
+    for iSite1 in xrange(nSites1):
+      if (trackOnlyMajor):
+        #only consider branches that are major correspondences
+        if (corrTypes[iSite1]<2):
+          continue
+      
       #continue by duplicating the entire previous track
+      site1 = corrSites[iSite1]
       tracks_checkContinue.append(basinTrack+[site1])
     
   return trackList
@@ -43,12 +50,13 @@ def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0):
   trackList = []
   for site in sites0:
     print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
-    siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site)
+    siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor=True)
     trackList.extend(siteTracks)
     
   return trackList
   
 def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics=''):
+  #find tracks for sites at iTimeStart going to at most iTimeEnd
   
   iTime = iTimeStart
   sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime)
@@ -128,4 +136,42 @@ def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
   
   f.close()
 
-
+def plot_tracks_cells(fTracks, mesh, fDirSave):
+  f = open(fTracks,'r')
+  
+  m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
+  r2d = 180./np.pi
+  
+  plt.figure()
+  m.drawcoastlines()
+  
+  for line in f:    
+    cellStr = line.strip().split()
+    trackList = [int(i) for i in cellStr]
+    if (len(trackList)<1):
+      continue
+    
+    lat, lon = mesh.get_latLon_inds(np.array(trackList,dtype=int))
+    lat *= r2d; lon *= r2d
+    x,y = m(lon,lat)
+    
+    print trackList
+    print lat; print lon
+    
+    #mark beginning and ending of track
+    m.scatter(x[0],y[0], marker='+', color='g', s=45)
+    m.scatter(x[-1],y[-1], marker='o', color='r', s=10)
+    
+    #plot track
+    m.plot(x,y, 'b-')
+    
+  if (False):
+    plt.show()
+  else:
+    fName = 'tracks_debug.png'
+    fSave = fDirSave+fName
+    print "Picture of tracks from {0}: {1}".format(fTracks,fSave)
+    plt.savefig(fSave); plt.close()
+      
+  f.close()
+  

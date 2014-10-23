@@ -208,8 +208,11 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   #return "distance" for >=1 basins from a reference basin.
   #measures can include: distance, diffArea, diffIntensity,...
   
-  #ansatz: |theta_i-theta_0| and distance are useful for discrimating differences
-  diffKeys = ['thetaExtr', 'vortMean', 'rEquiv', 'latExtr']; nKeys = len(diffKeys)
+  #ansatz: basin metrics are useful for discrimating differences (ie, tpv properties should be semi-persistent)
+  #diffKeys = ['thetaExtr', 'vortMean', 'rEquiv', 'latExtr']; nKeys = len(diffKeys)
+  #refDiffs = [3.0, 5.e-5, 300.0, 5.0]
+  diffKeys = ['thetaExtr', 'latExtr']; nKeys = len(diffKeys)
+  refDiffs = [1.0, 2.0]
   
   #get site0 and sites1 measures ---------
   
@@ -240,7 +243,7 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
       vals1[iKey, iSite1] = val
     #end iSite1  
   #end iKey
-   
+  
   #calc difference measures --------------------------
   diffMeasures = np.empty((nKeys, nSites1), dtype=float)
   
@@ -251,11 +254,24 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   #print diffMeasures
   
   #return "distances" in metric space -------------------
-  #imagine that dTheta~2,5,10,25K, distance~60,100,300,1000km, vortMean~1.e-5...so want a way to aggregate
-  #d = sum( diffMeasures_i/mean(diffMeasures_i) )...normalized deviations?
+  #imagine that dTheta~2,5,10,25K, distance~60,100,300,1000km, vortMean~1.e-5...so want a way to aggregate.
+  #1) d = sum( diffMeasures_i/mean(diffMeasures_i) ) gives normalized deviations. But, consider if diffMeasures_i
+  #is all within 1.e-12. Then, the values are "really" all the same, but normalizing by mean(diffMeasures_i) will amplify
+  #the differences.
+  #2) have some equivalent conversion value between variables (5K ~ 100km ~...). Deciding on values is arbitrary, but matches
+  #may not be too sensitive to the specific choices (hopefully?)
   d = np.zeros(nSites1, dtype=float)
   for iKey in xrange(nKeys):
-    d += diffMeasures[iKey,:]/np.mean(diffMeasures[iKey,:])
+    d += diffMeasures[iKey,:]/refDiffs[iKey]
+  
+  if (True): #print out some info for basins near pole
+    indLat = diffKeys.index('latExtr')
+    if (vals0[indLat]>85.):
+      print "-------------------\n"
+      print site0, vals0
+      print sites1, vals1
+      print d
+      print "-------------------\n"
    
   return d
 

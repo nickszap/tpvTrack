@@ -12,7 +12,7 @@ import correspond
 
 r2d = 180./np.pi
 
-def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor=False):
+def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
   # follow a given site throughout the correspondences "tree" and split tree into individual tracks
   
   tracks_checkContinue = [[site0]]
@@ -22,8 +22,8 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor=False
     basinTrack = tracks_checkContinue.pop()
     nTimes = len(basinTrack); site0 = basinTrack[-1]
     
-    iTime = iTimeStart+nTimes-1 #0-indexing for time
-    if (iTime>iTimeEnd): #no more times left
+    iTime = iTimeStart+nTimes-1 #0-indexing for time (time0 will have 1 site, time1 will have 2 sites)
+    if (iTime>=iTimeEnd): #no more times left
       trackList.append(basinTrack)
       continue
     
@@ -31,6 +31,12 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor=False
     if (len(corrSites)<1): #don't connect to future site
       trackList.append(basinTrack)
       continue
+    
+    if (trackOnlyMajor):
+      if (2 not in corrTypes):
+        #don't connect to future site
+        trackList.append(basinTrack)
+        continue
       
     #if here, site0 connects to >=1 future sites so can continue track
     nSites1 = len(corrSites)
@@ -46,16 +52,18 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor=False
     
   return trackList
   
-def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0):
+def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0, trackOnlyMajor):
   trackList = []
   for site in sites0:
     print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
-    siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor=True)
-    trackList.extend(siteTracks)
+    siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor)
+    for t in siteTracks:
+      if (len(t)>0):
+        trackList.append(t)
     
   return trackList
   
-def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics=''):
+def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='', trackOnlyMajor=False):
   #find tracks for sites at iTimeStart going to at most iTimeEnd
   
   iTime = iTimeStart
@@ -80,7 +88,7 @@ def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics=''):
   print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, iTime) 
   sites0 = sites0[notInPrev>0]
   
-  trackList = form_tracks_iTime(fCorr, iTimeStart, iTimeEnd, sites0)
+  trackList = form_tracks_iTime(fCorr, iTimeStart, iTimeEnd, sites0,trackOnlyMajor)
   
   if (fMetrics==''):
     write_tracks_cells(fNameTracks, trackList)
@@ -154,9 +162,7 @@ def plot_tracks_cells(fTracks, mesh, fDirSave):
     lat, lon = mesh.get_latLon_inds(np.array(trackList,dtype=int))
     lat *= r2d; lon *= r2d
     x,y = m(lon,lat)
-    
-    print trackList
-    print lat; print lon
+    #print lat; print lon
     
     #mark beginning and ending of track
     m.scatter(x[0],y[0], marker='+', color='g', s=45)

@@ -165,8 +165,10 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, info='eraI ca
     data = netCDF4.Dataset(fPath,'r')
     
     #loop over individual times ------------------------------
-    times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
-    for iTime in xrange(nTimes):
+    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
+    #for iTime in xrange(nTimes):
+    iTimeStart = 48; iTimeEnd = 88
+    for iTime in xrange(iTimeStart,iTimeEnd+1):
       #read from file
       theta = data.variables['pt'][iTime,:,:]
       u = data.variables['u'][iTime,:,:]; v = data.variables['v'][iTime,:,:]

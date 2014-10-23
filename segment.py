@@ -289,7 +289,7 @@ def run_plotBasins(fDirSave, dataMetr, fSeg, mesh):
     nMax = dataSeg.variables['nSitesMax'][iTime]; sitesMax = sitesMax[0:nMax]
     
     theta = dataMetr.variables['theta'][iTime,:]
-    vals = theta[cell2Site]; vals[cell2Site<0] = np.nan; print vals
+    vals = theta[cell2Site]; vals[cell2Site<0] = np.nan; #print vals
     
     print "Saving file: "+fSave
     plot_basins_save(fSave, lat, lon, vals, sitesMin, sitesMax)

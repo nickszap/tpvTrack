@@ -1,4 +1,3 @@
-
 import netCDF4
 import matplotlib.pyplot as plt
 
@@ -26,23 +25,27 @@ def demo():
   latThresh = my_settings.latThresh
   
   #pre-process ------------------------
-  #mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
-  mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh) #if already processed input data
+  if (False):
+    mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
+  else:
+    mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh) #if already processed input data
   
   cell0 = llMesh.Cell(mesh,0)
   print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); nTimes = len(dataMetr.dimensions['time'])
-  #segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
-  #segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+  if (False):
+    segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
+    segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+  
   dataMetr.close()
   
   #spatial metrics ------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
-  
-  #basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
+  if (False):
+    basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
   
   dataMetr.close()
   dataSeg.close()
@@ -53,18 +56,23 @@ def demo():
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
   dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-  #correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
-  #correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
+  if (True):
+    correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
+    correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
   
   dataMetrics.close()
   dataSeg.close()
   dataMetr.close()
   
   #time tracks -------------------------
-  #for iTime in xrange(nTimes-2, -1, -1):
-    #tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2, fMetrics=fMetrics)
-    #tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2)
-  tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
+  if (False):
+    #since appending to fTrack over time, wipe file before starting (if it exists)
+    my_settings.silentremove(fTrack)
+    
+    for iTime in xrange(nTimes-2, -1, -1):
+      #tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2, fMetrics=fMetrics)
+      tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2, trackOnlyMajor=True)
+    tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
   
   #time metrics ----------------------
 

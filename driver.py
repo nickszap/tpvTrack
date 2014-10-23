@@ -28,14 +28,16 @@ def demo():
   if (False):
     mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
   else:
-    mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh) #if already processed input data
+    #if already processed input data
+    mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh)
   
   cell0 = llMesh.Cell(mesh,0)
-  print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
+  if (True):
+    print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); nTimes = len(dataMetr.dimensions['time'])
-  if (False):
+  if (True):
     segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
     segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   
@@ -44,7 +46,7 @@ def demo():
   #spatial metrics ------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
-  if (False):
+  if (True):
     basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
   
   dataMetr.close()
@@ -65,7 +67,7 @@ def demo():
   dataMetr.close()
   
   #time tracks -------------------------
-  if (False):
+  if (True):
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
     

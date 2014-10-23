@@ -156,7 +156,7 @@ def plot_tracks_cells(fTracks, mesh, fDirSave):
   for line in f:    
     cellStr = line.strip().split()
     trackList = [int(i) for i in cellStr]
-    if (len(trackList)<1):
+    if (len(trackList)<3):
       continue
     
     lat, lon = mesh.get_latLon_inds(np.array(trackList,dtype=int))

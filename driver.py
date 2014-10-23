@@ -25,7 +25,7 @@ def demo():
   latThresh = my_settings.latThresh
   
   #pre-process ------------------------
-  if (False):
+  if (my_settings.doPreProc):
     mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
   else:
     #if already processed input data
@@ -37,7 +37,7 @@ def demo():
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); nTimes = len(dataMetr.dimensions['time'])
-  if (True):
+  if (my_settings.doSeg):
     segment.run_segment(fSeg, info, dataMetr, cell0, mesh)
     segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   
@@ -46,7 +46,7 @@ def demo():
   #spatial metrics ------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
-  if (True):
+  if (my_settings.doMetrics):
     basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
   
   dataMetr.close()
@@ -58,7 +58,7 @@ def demo():
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
   dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-  if (True):
+  if (my_settings.doCorr):
     correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
     correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
   
@@ -67,7 +67,7 @@ def demo():
   dataMetr.close()
   
   #time tracks -------------------------
-  if (True):
+  if (my_settings.doTracks):
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
     

@@ -31,6 +31,12 @@ fCorr = fDirSave+'correspond_debug.pkl'
 fTrack = fDirSave+'tracks_debug.txt'
 fMetrics = fDirSave+'metrics_debug.nc'
 
+doPreProc = False
+doSeg = False
+doMetrics = False
+doCorr = False
+doTracks = True
+
 def silentremove(filename):
   #from http://stackoverflow.com/questions/10840533/most-pythonic-way-to-delete-a-file-which-may-not-exist
   print "Removing file (if it exists): ",filename

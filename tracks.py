@@ -55,7 +55,7 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
 def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0, trackOnlyMajor):
   trackList = []
   for site in sites0:
-    print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
+    #print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
     siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor)
     for t in siteTracks:
       if (len(t)>0):
@@ -131,14 +131,14 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='
       for i in xrange(len(trackSeq)):
         #basin in trackSeq[i] is at index i [iTimeStart,iTimeEnd]
         sitesInTrack[iTime+i].append(trackSeq[i])
-    print sitesInTrack    
+    #print sitesInTrack    
         
     #write to file
     if (fMetrics==''):
       write_tracks_cells(fNameTracks, trackList)
     else:
       dataMetrics = netCDF4.Dataset(fMetrics,'r')
-      write_tracks_metrics_iTime(fNameTracks, iTimeStart, trackList, dataMetrics)
+      write_tracks_metrics_iTime(fNameTracks, timeInd, trackList, dataMetrics)
       dataMetrics.close()
 
 def write_tracks_cells(fNameTracks, trackList):
@@ -162,7 +162,7 @@ def read_tracks_cells(fNameTracks):
 def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
   '''
   format is:
-  (header) nTracks metric1 metric2 ...
+  (header) metric1 metric2 ...
   timeStartTrack1 nTimesTrack1
   (time1) metric1 metric2 ... for track1
   (time2) metric1 metric2 ... for track1
@@ -177,6 +177,12 @@ def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
   '''
   
   f = open(fSave,'a')
+  
+  #add the header if "appending" actually created the file
+  if (f.tell() == 0): #file pointer at 0th byte
+    varNames = basinMetrics.metricKeys
+    s = ' '.join(varNames);
+    f.write(s+'\n'); s = ''
   
   for track in trackList:
     s = ''

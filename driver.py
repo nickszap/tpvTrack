@@ -71,9 +71,7 @@ def demo():
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
     
-    for iTime in xrange(nTimes-2, -1, -1):
-      #tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2, fMetrics=fMetrics)
-      tracks.run_tracks(fTrack, fCorr, iTime, nTimes-2, trackOnlyMajor=True)
+    tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-2, fMetrics='', trackOnlyMajor=True)
     tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
   
   #time metrics ----------------------

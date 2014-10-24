@@ -97,6 +97,50 @@ def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='', trackOnlyM
     write_tracks_metrics_iTime(fNameTracks, iTimeStart, trackList, dataMetrics)
     dataMetrics.close()
 
+def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='', trackOnlyMajor=False):
+  #find tracks for sites at [iTimeStart,iTimeEnd) out to iTimeEnd (at most).
+  #besides stitching the correspondences together, the tricky part is that we don't want to start a track
+  #for a basin at each timestep...only start a track at "genesis".
+  #define genesis as:
+  #-basin not part of an existing track at that time
+  
+  #store the basins that are part of tracks at each time
+  nTimes = iTimeEnd-iTimeStart
+  sitesInTrack = [[] for i in xrange(nTimes+1)] #need +1 since storing iTimeStart basins as well
+  
+  for iTime in xrange(nTimes):
+    timeInd = iTime+iTimeStart
+    sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, timeInd)
+    
+    #ignore sites already trajectoried in an existing track
+    nSites0 = len(sites0)
+    notInPrev = np.ones(nSites0,dtype=int)
+    
+    for iSite in xrange(nSites0):
+      site0 = sites0[iSite]
+      if (site0 in sitesInTrack[iTime]):
+        notInPrev[iSite] = 0
+
+    print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) 
+    sites0 = sites0[notInPrev>0]
+  
+    trackList = form_tracks_iTime(fCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor)
+    
+    #update sitesInTrack
+    for trackSeq in trackList:
+      for i in xrange(len(trackSeq)):
+        #basin in trackSeq[i] is at index i [iTimeStart,iTimeEnd]
+        sitesInTrack[iTime+i].append(trackSeq[i])
+    print sitesInTrack    
+        
+    #write to file
+    if (fMetrics==''):
+      write_tracks_cells(fNameTracks, trackList)
+    else:
+      dataMetrics = netCDF4.Dataset(fMetrics,'r')
+      write_tracks_metrics_iTime(fNameTracks, iTimeStart, trackList, dataMetrics)
+      dataMetrics.close()
+
 def write_tracks_cells(fNameTracks, trackList):
   print "Appending to file: "+fNameTracks
   f = open(fNameTracks,'a')
@@ -104,7 +148,17 @@ def write_tracks_cells(fNameTracks, trackList):
     s = ' '.join(str(i) for i in track)
     f.write(s+'\n')
   f.close()
-  
+
+def read_tracks_cells(fNameTracks):
+  #return trackList
+  f = open(fNameTracks,'r')
+  trackList = []
+  for line in f:    
+    cellStr = line.strip().split()
+    trackSeq = [int(i) for i in cellStr]
+    trackList.append(trackSeq)
+  return trackList
+
 def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
   '''
   format is:

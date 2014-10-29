@@ -26,10 +26,12 @@ def demo():
   
   #pre-process ------------------------
   if (my_settings.doPreProc):
-    mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, info=info)
+    mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, 
+                                my_settings.rEarth, dRegion, latThresh, 
+                                my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
   else:
     #if already processed input data
-    mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh)
+    mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
   
   cell0 = llMesh.Cell(mesh,0)
   if (True):

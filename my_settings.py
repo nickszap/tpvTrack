@@ -16,9 +16,13 @@ info = 'eraI_45N_test'
 fDirData = '/data02/cases/summer2006/eraI/pv/'
 filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-07-20*.nc'), key=os.path.getmtime)
 deltaT = 6.*60.*60. #timestep (s)
-#It's really difficult to be general about selecting the desired timesteps within the given data files.
-#So, the user is left to arrange preProcess.py for their desired use.
-#maybe an iTimeStart_data[nFilesData] and iTimeEnd_data[nFilesData] where end[-1] means use all times?
+#select time intervals within filesData[iFile]...end[-1] means use all times
+iTimeStart_fData = [0]
+iTimeEnd_fData = [-1]
+if (True):
+  nFiles = len(filesData)
+  if (len(iTimeStart_fData) != nFiles or len(iTimeEnd_fData) != nFiles):
+    print "Uhoh, wrong iTime*_data settings in my_settings.py"
 
 fDirSave = '/data02/cases/test_segment/testUnified/200608/'
 if not os.path.exists(fDirSave):

@@ -139,7 +139,7 @@ def eraTimeToCalendarTime(hrs):
   s = time.strftime('%Y-%m-%d_%H', tTuple)
   return s  
 
-def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, info='eraI case'):
+def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='eraI case'):
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
   d2r = np.pi/180.; 
@@ -167,7 +167,10 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, info='eraI ca
     #loop over individual times ------------------------------
     #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
     #for iTime in xrange(nTimes):
-    iTimeStart = 48; iTimeEnd = 88
+    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
+    if (iTimeEnd<0): #use all times in file
+      times = data.variables['time'][:]; nTimes = len(times);
+      iTimeEnd = nTimes-1
     for iTime in xrange(iTimeStart,iTimeEnd+1):
       #read from file
       theta = data.variables['pt'][iTime,:,:]

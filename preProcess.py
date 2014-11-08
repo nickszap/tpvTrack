@@ -196,6 +196,59 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   dataOut.close()
   
   return mesh
+
+def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='mpas case'):
+  #mesh ---------------------
+  data = netCDF4.Dataset(fMesh,'r')
+  lat = data.variables['latCell'][:]; lon = data.variables['lonCell'][:]
+  lon = lon%(2.*np.pi) #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
+  
+  nEdgesOnCell = data.variables['nEdgesOnCell'][:];
+  cellsOnCell = data.variables['cellsOnCell'][:]-1;
+  areaCell = data.variables['areaCell'][:]
+  data.close()
+  
+  mesh = mpasMesh.Mesh(lat,lon, areaCell, cellsOnCell, nCellsOnCell, r, dRegion)
+  mesh.fill_inRegion(latThresh)
+  
+  #metr fields -----------------
+  nFiles = len(filesDataIn)
+  if (nFiles<1):
+    return mesh
+  
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  iTimeGlobal = 0
+  for iFile in xrange(nFiles):
+    fPath = filesDataIn[iFile]
+    data = netCDF4.Dataset(fPath,'r')
+    
+    #loop over individual times ------------------------------
+    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
+    #for iTime in xrange(nTimes):
+    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
+    if (iTimeEnd<0): #use all times in file
+      nTimes = len(data.dimensions['Time'])
+      iTimeEnd = nTimes-1
+    for iTime in xrange(iTimeStart,iTimeEnd+1):
+      #read from file
+      theta = data.variables['theta_pv'][iTime,:]
+      u = data.variables['u_pv'][iTime,:]; v = data.variables['v_pv'][iTime,:]
+      vort = data.variables['vort_pv'][iTime,:]
+      
+      #fill in missing values w/in region
+      #MPAS will have surface values if whole column is above 2pvu.
+      #Unclear what to do if whole column is below 2pvu (like near equator)
+      
+      #compute additional fields
+    
+      #write to file      
+      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
+      iTimeGlobal = iTimeGlobal+1
+    #end iTime
+  #end iFile
+  dataOut.close()
+  
+  return mesh
   
 def write_netcdf_header_metr(fName, info, nCells):
   

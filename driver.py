@@ -43,7 +43,7 @@ def demo():
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
   if (True):
-    print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
+    print 'Cell index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); nTimes = len(dataMetr.dimensions['time'])

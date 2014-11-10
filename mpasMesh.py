@@ -59,14 +59,15 @@ class Mesh(object):
     self.cellsOnCell = cellsOnCell
     self.nCellsOnCell = nCellsOnCell
     self.rDisk = rDisk
+    self.info = 'mpas'
   
-  def get_closestCell2Pt(self, latPt, lonPt):
-    guessCell = 0 #using a seed cell is tricky...optional argument for the latLon caller?
+  def get_closestCell2Pt(self, latPt, lonPt, guessCell=0):
+    #using a seed cell is not currently needed for the latLon caller
     pt_ll = np.empty(2,dtype=float);
     pt_ll[0] = latPt; pt_ll[1] = lonPt;
     iCell = findOwner_horizNbrs_latLon(pt_ll, guessCell, self.lat, self.lon, self.nCellsOnCell, self.cellsOnCell)
     
-    print 'closestCell2Pt (latPt,lonPt), (latCell,lonCell) ({0},{1}), ({2},{3})'.format(latPt, lonPt, self.lat[iCell], self.lon[iCell])
+    #print 'closestCell2Pt (latPt,lonPt), (latCell,lonCell) ({0},{1}), ({2},{3})'.format(latPt, lonPt, self.lat[iCell], self.lon[iCell])
     return iCell
   
   def fill_inRegion(self, latThresh):

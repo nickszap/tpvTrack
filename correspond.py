@@ -73,9 +73,14 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
   #cells corresponding to those coordinates
   nPts = len(latPts);
   advCells = np.empty(nPts, dtype=int)
+  guessCell = siteInd #used for mpas meshes
   
   for iPt in xrange(nPts):
-    advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
+    if (mesh.info == 'mpas'):
+      advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt], guessCell=guessCell)
+      guessCell = advCells[iPt]
+    else:
+      advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
   
   if (False):
     latCell, lonCell = mesh.get_latLon_inds(advCells)

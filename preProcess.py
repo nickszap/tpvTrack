@@ -153,11 +153,12 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   #mesh.fill_latCellArea()
   mesh.fill_inDisk(dRegion)
   mesh.fill_inRegion(latThresh)
+  cell0 = llMesh.Cell(mesh,0)
   
   #metr fields -----------------
   nFiles = len(filesDataIn)
   if (nFiles<1):
-    return mesh
+    return mesh, cell0
   
   dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
   iTimeGlobal = 0
@@ -196,7 +197,6 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   #end iFile
   dataOut.close()
   
-  cell0 = llMesh.Cell(mesh,0)
   return mesh, cell0
 
 def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='mpas case'):
@@ -212,11 +212,12 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   
   mesh = mpasMesh.Mesh(lat,lon, areaCell, cellsOnCell, nEdgesOnCell, r, dRegion)
   mesh.fill_inRegion(latThresh)
+  cell0 = mpasMesh.Cell(mesh,0)
   
   #metr fields -----------------
   nFiles = len(filesDataIn)
   if (nFiles<1):
-    return mesh
+    return mesh, cell0
   
   dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
   iTimeGlobal = 0
@@ -250,7 +251,6 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   #end iFile
   dataOut.close()
   
-  cell0 = mpasMesh.Cell(mesh,0)
   return mesh, cell0
   
 def write_netcdf_header_metr(fName, info, nCells):

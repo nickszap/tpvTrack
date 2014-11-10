@@ -116,6 +116,7 @@ class Mesh(object):
     self.inRegion = np.ones((nLat,nLon),dtype=int)
     self.inDiskLat = [None]*nLat
     self.inDiskLon = [None]*nLat
+    self.info = 'latLon'
     
   def fill_latCellArea(self):
     areaLat = calc_areaLatStrips(self.lat, self.r)

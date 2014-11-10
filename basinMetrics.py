@@ -267,7 +267,7 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   if (True): #print out some info for basins near pole
     indLat = diffKeys.index('latExtr')
     if (vals0[indLat]>85.):
-      print "-------------------\n"
+      print "-------Some info for TPVs near north pole------------\n"
       print site0, vals0
       print sites1, vals1
       print d

@@ -41,7 +41,7 @@ def gatherCells_radius(pt_ll, rDisk, rEarth, c0, cellsOnCell, nEdgesOnCell, latC
       nbrs = cellsOnCell[c0,0:nEdgesOnCell[c0]]
       for iCell in nbrs:
         if ((iCell not in closeCells) and (iCell not in farCells) and (iCell not in candidates)):
-          candidates.append(n)
+          candidates.append(iCell)
     else:
       farCells.append(c0)
 
@@ -52,7 +52,8 @@ class Mesh(object):
     self.r = r
     self.lat = lat
     self.lon = lon
-    self.nCells = len(lat)
+    nCells = len(lat)
+    self.nCells = nCells
     self.areaCell = areaCell
     self.inRegion = np.ones(nCells,dtype=int)
     self.cellsOnCell = cellsOnCell

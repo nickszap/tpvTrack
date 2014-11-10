@@ -9,6 +9,7 @@ import netCDF4
 
 import helpers
 import llMesh
+import mpasMesh
 
 def get_missingCells_file(data):
   #if search vertical column down from top, there can be no 2pvu value if:
@@ -195,7 +196,8 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   #end iFile
   dataOut.close()
   
-  return mesh
+  cell0 = llMesh.Cell(mesh,0)
+  return mesh, cell0
 
 def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='mpas case'):
   #mesh ---------------------
@@ -208,7 +210,7 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   areaCell = data.variables['areaCell'][:]
   data.close()
   
-  mesh = mpasMesh.Mesh(lat,lon, areaCell, cellsOnCell, nCellsOnCell, r, dRegion)
+  mesh = mpasMesh.Mesh(lat,lon, areaCell, cellsOnCell, nEdgesOnCell, r, dRegion)
   mesh.fill_inRegion(latThresh)
   
   #metr fields -----------------
@@ -248,7 +250,8 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   #end iFile
   dataOut.close()
   
-  return mesh
+  cell0 = mpasMesh.Cell(mesh,0)
+  return mesh, cell0
   
 def write_netcdf_header_metr(fName, info, nCells):
   

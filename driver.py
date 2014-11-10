@@ -26,14 +26,22 @@ def demo():
   
   #pre-process ------------------------
   if (my_settings.doPreProc):
-    mesh = preProcess.demo_eraI(fMesh, filesData, fMetr, 
-                                my_settings.rEarth, dRegion, latThresh, 
-                                my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
+    if (my_settings.inputType=='eraI'):
+      mesh, cell0 = preProcess.demo_eraI(fMesh, filesData, fMetr, 
+                                  my_settings.rEarth, dRegion, latThresh, 
+                                  my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
+    elif (my_settings.inputType=='mpas'):
+      mesh, cell0 = preProcess.demo_mpas(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
+    else:
+      print "Unrecognized input type in my_settings: ",my_settings.inputType
   else:
     #if already processed input data
-    mesh = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
-  
-  cell0 = llMesh.Cell(mesh,0)
+    if (my_settings.inputType=='eraI'):
+      mesh, cell0 = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
+    elif (my_settings.inputType=='mpas'):
+      mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
+    else:
+      print "Unrecognized input type in my_settings: ",my_settings.inputType
   if (True):
     print 'index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   

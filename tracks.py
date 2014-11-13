@@ -6,6 +6,8 @@ import netCDF4
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from mpl_toolkits.basemap import Basemap
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 import basinMetrics
 import correspond
@@ -204,6 +206,40 @@ def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
   
   f.close()
 
+def read_tracks_metrics(fNameTracks, metricNames):
+  #Input the name of the track file and list of metricNames strings.
+  #return list of numpy arrays list[iTrack][iTime,iMetric] with the metric properties of the tracked TPVs.
+  
+  f = open(fNameTracks, 'r')
+  l = f.readline(); l = l.strip().split()
+  metricInds = [l.index(i) for i in metricNames]
+  trackList = []
+  while (True):
+    l = f.readline(); l = l.strip().split()
+    if (len(l)<1): #end of file
+      break
+    #number of times
+    vals = [int(i) for i in l]
+    iTimeStart = vals[0]; nTimes = vals[1]
+     
+    #values at each time
+    trackVals = np.empty((nTimes,len(metricInds)),dtype=float)
+    for iTime in xrange(nTimes):
+      l = f.readline(); l = l.strip().split()
+      vals = np.array(l)[metricInds].astype(float)
+      trackVals[iTime,:] = vals[:]
+      
+    #-1 to end track
+    l = f.readline(); l = l.strip().split()
+    if (l[0] != '-1'):
+      print "Uhoh. Something has gone quite wrong in reading track file.\n"
+      print "Expected '-1' but got ", l
+    
+    trackList.append(trackVals)
+    
+  f.close()
+  return trackList
+  
 def plot_tracks_cells(fTracks, mesh, fDirSave):
   f = open(fTracks,'r')
   
@@ -240,4 +276,88 @@ def plot_tracks_cells(fTracks, mesh, fDirSave):
     plt.savefig(fSave); plt.close()
       
   f.close()
+
+def plot_tracks_metrics(fTracks, fSave):
   
+  metricNames = ['thetaExtr', 'latExtr', 'lonExtr']
+  latInd = metricNames.index('latExtr')
+  lonInd = metricNames.index('lonExtr')
+  varInd = metricNames.index('thetaExtr'); varMin = 280.; varMax = 315.
+
+  trackList = read_tracks_metrics(fTracks, metricNames)
+  
+  m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
+  r2d = 180./np.pi
+  
+  #ax = plt.figure()
+  ax = plt.gca()
+  m.drawcoastlines()
+  
+  for track in trackList:
+    nTimes = track.shape[0]
+    if (False):
+      if (nTimes<3):
+        continue
+    
+    lat = track[:,latInd]
+    lon = track[:,lonInd]
+    x,y = m(lon,lat)
+    #print lat; print lon
+    
+    #mark beginning and ending of track
+    m.scatter(x[0],y[0], marker='+', color='g', s=45)
+    m.scatter(x[-1],y[-1], marker='o', color='r', s=10)
+    
+    #plot track, with color representing value
+    #m.plot(x,y, 'b-')
+    vals = track[:,varInd]
+    colorline(x, y, z=vals, cmap=plt.get_cmap('Blues_r'), norm=plt.Normalize(varMin, varMax), linewidth=3, alpha=1.0, ax=ax)
+  
+  #plt.colorbar()
+    
+  if (True):
+    plt.show()
+  else:
+    print "Saving image of tracks from {0}: {1}".format(fTracks,fSave)
+    plt.savefig(fSave); plt.close()
+    
+
+#The following 2 fcts are taken from:
+# http://nbviewer.ipython.org/github/dpsanders/matplotlib-examples/blob/master/colorline.ipynb
+def make_segments(x, y):
+    '''
+    Create list of line segments from x and y coordinates, in the correct format for LineCollection:
+    an array of the form   numlines x (points per line) x 2 (x and y) array
+    '''
+
+    points = np.array([x, y]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+    
+    return segments
+
+
+# Interface to LineCollection:
+def colorline(x, y, z=None, cmap=plt.get_cmap('Blues_r'), norm=plt.Normalize(0.0, 1.0), linewidth=3, alpha=1.0, ax=plt.gca()):
+    '''
+    Plot a colored line with coordinates x and y
+    Optionally specify colors in the array z
+    Optionally specify a colormap, a norm function and a line width
+    '''
+    
+    # Default colors equally spaced on [0,1]:
+    if z is None:
+        z = np.linspace(0.0, 1.0, len(x))
+           
+    # Special case if a single number:
+    if not hasattr(z, "__iter__"):  # to check for numerical input -- this is a hack
+        z = np.array([z])
+        
+    z = np.asarray(z)
+    
+    segments = make_segments(x, y)
+    lc = LineCollection(segments, array=z, cmap=cmap, norm=norm, linewidth=linewidth, alpha=alpha)
+    
+    #ax = plt.gca()
+    ax.add_collection(lc)
+    
+    return lc

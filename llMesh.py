@@ -104,7 +104,7 @@ def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
   return (inRegion_lat, inRegion_lon)  
   
 class Mesh(object):
-  def __init__(self,lat,lon, r):
+  def __init__(self,lat,lon, r, rDisk):
     self.r = r
     self.lat = lat
     self.lon = lon
@@ -116,13 +116,15 @@ class Mesh(object):
     self.inRegion = np.ones((nLat,nLon),dtype=int)
     self.inDiskLat = [None]*nLat
     self.inDiskLon = [None]*nLat
+    self.rDisk = rDisk
     self.info = 'latLon'
     
   def fill_latCellArea(self):
     areaLat = calc_areaLatStrips(self.lat, self.r)
     self.areaCell = areaLat/self.nLon
   
-  def fill_inDisk(self, dRegion):
+  def fill_inDisk(self):
+    dRegion = self.rDisk
     r = self.r; lat = self.lat; lon = self.lon;
     nLat = self.nLat; nLon = self.nLon
     nLatIndsLength = calc_latIndicesWithinLength(nLat, r, dRegion)
@@ -193,12 +195,14 @@ class Cell(object):
       
   def nbrInds_ll(self):
     #return list of 8-conn nbr indices: [(latNbr1, lonNbr1), (latNbr2, lonNbr2),...]
-    #always have east, west neighbors. not north/south at respective pole
+    #always have east, west neighbors. not north/south at respective pole.
+    #the entire equatorward latitude circle is the neighbor of a pole.
     
     iLat = self.iLat; iLon = self.iLon
     nLat = self.mesh.nLat; nLon = self.mesh.nLon
     
     iWest = (iLon-1)%nLon # -1%4=3 so don't worry about negatives
+    #from docs, "The modulo operator always yields a result with the same sign as its second operand (or zero)"
     iEast = (iLon+1)%nLon
     iSouth = iLat+1
     iNorth = iLat-1
@@ -208,12 +212,22 @@ class Cell(object):
     
     nbrLats = [iLat, iLat]; nbrLons = [iWest, iEast]
     if (haveSouth):
-      nbrLats.extend([iSouth, iSouth, iSouth])
-      nbrLons.extend([iWest, iLon, iEast])
-      
+      if (haveNorth):
+        nbrLats.extend([iSouth, iSouth, iSouth])
+        nbrLons.extend([iWest, iLon, iEast])
+      else:
+        #north pole
+        nbrLats.extend([iSouth]*nLon)
+        nbrLons.extend(range(nLon))
+        
     if (haveNorth):
-      nbrLats.extend([iNorth, iNorth, iNorth])
-      nbrLons.extend([iWest, iLon, iEast])
+      if (haveSouth):
+        nbrLats.extend([iNorth, iNorth, iNorth])
+        nbrLons.extend([iWest, iLon, iEast])
+      else:
+        #south pole
+        nbrLats.extend([iNorth]*nLon)
+        nbrLons.extend(range(nLon))
       
     return (nbrLats, nbrLons)
 

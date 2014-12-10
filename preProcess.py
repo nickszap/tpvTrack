@@ -149,9 +149,9 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   lon = lon%(2.*np.pi)
   data.close()
   
-  mesh = llMesh.Mesh(lat,lon, r)
+  mesh = llMesh.Mesh(lat,lon, r, dRegion)
   #mesh.fill_latCellArea()
-  mesh.fill_inDisk(dRegion)
+  mesh.fill_inDisk()
   mesh.fill_inRegion(latThresh)
   cell0 = llMesh.Cell(mesh,0)
   
@@ -180,7 +180,10 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
       
       #fill in missing values w/in region
       #ERA-I doesn't appear to have any missing values...I don't know how their interpolation works.
-      #Some old documentation described PP2DINT that extrapolates using constant values
+      #Some old documentation described PP2DINT that extrapolates using constant values.
+      #This rando site: https://badc.nerc.ac.uk/data/ecmwf-op/levels.html
+      #says 
+      #"The ECMWF Operational and ERA-40 datasets also provide data on a "PV=+/-2" surface on which the potential vorticity takes the value 2PVU in the northern hemisphere and -2PVU in the southern hemisphere (1PVU = 10-6 m2 s-1 K kg-1), provided such a surface can be found searching downwards from the Model level close to 96hPa. Values at this model level are used where the search is unsuccessful."
       
       #compute additional fields
       vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)

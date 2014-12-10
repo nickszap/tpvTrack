@@ -66,52 +66,59 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
       latNbrs, lonNbrs = mesh.get_latLon_inds(nbrs)
       
       dNbrs = helpers.calc_distSphere_multiple(mesh.r, lat0, lon0, latNbrs, lonNbrs)
-      dMin = mesh.r/1.e16; dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
+      dMin = min(1.e-6,mesh.r/mesh.nCells); dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
       #print valNbrs, dNbrs, val0
       valNbrs = (valNbrs-val0)/dNbrs
       iNbr = np.argmin(valNbrs)
       cell2Site[iCell] = nbrs[iNbr]
   
   #Filter local extrema by area to limit high (spatial) frequency "noise".
-  #For multiple close mins, the smallest counts as min for that region.
-  nRedirect = 0
-  for cell in iter(cell0.copy()):
-    if (not cell.isInRegion()):
-      continue
-      
-    iCell = cell.ind
-    if (cellIsMin[iCell]>0):
-      #see if cell is min in region, not just neighbors.
-      #if not regional min, update cell2Site so local min goes to another basin
-      cellsRegion = cell.get_regionInds()
-      valsRegion = vals[cellsRegion]
-      minInd = np.argmin(valsRegion)
-      minVal = valsRegion[minInd]; minCell = cellsRegion[minInd];
-      val0 = vals[iCell]; #print val0, minVal
-      if (minVal < val0):
-        #print "Redirecting cell {0} to {1}".format(iCell, minCell)
-        cellIsMin[iCell] = 0
-        cell2Site[iCell] = minCell
-        nRedirect = nRedirect+1
-      else:
-        #cell is min, but not necessarily distinct min (ie strictly less than all other values w/in disk).
-        #here, we deal with the case where multiple cells in region all have the exact same value.
-        #3 (or nLon) neigboring mins should be 1 tpv, not 3 (physically).
-        #we'll redirect to the maximum index within disk (so all cells redirect to accepted min).
-        
-        #While unlikely for 2 general floats to be equal, this can arise from:
-        #-idealized initialization
-        #-compressed storage of variables (eg, ERA-I stores as shorts where val=short*scale+offset)
-        isDiskMin = valsRegion==minVal
-        if (np.sum(isDiskMin)>1):
-          indsOfMins = cellsRegion[isDiskMin>0]
-          minCell = np.max(indsOfMins)
-          if (iCell != minCell):
-            cellIsMin[iCell] = 0
-            cell2Site[iCell] = minCell
-            nRedirect = nRedirect+1
-        
-  #print "Number of redirects for regional min: ", nRedirect
+  #Keep the regional min as the min for that area.
+  
+  #The edge case is when there are >1 regional extremum, ie not distinct min (duplicate values).
+  #3 (or nLon) neigboring mins should be 1 tpv, not 3 (physically).
+  #we'll redirect to the maximum index within disk (so all cells redirect to accepted min).
+  #While unlikely for 2 general floats to be equal, this can arise from:
+  #-idealized initialization
+  #-compressed storage of variables (eg, ERA-I stores as shorts where val=short*scale+offset)
+  
+  #The logic is simplified if we just compare each min to all others (rather than looking at cells in region about each extremum). 
+  #Plus side is that now we don't even need a function for cell.get_regionInds()
+  localMins = np.arange(mesh.nCells,dtype=int)[cellIsMin>0]
+  nMins = len(localMins)
+  distMatrix = np.empty((nMins,nMins),dtype=float)
+  for iMin in xrange(nMins):
+    #just calculate distances for upper right triangle of nMins x nMins matrix, since distances are symmetric)
+    iCell = localMins[iMin]
+    #can't skip if already found not to be min in disk when checking some previous min if want iteration-order independence
+    
+    #distance to other mins
+    nbrs = localMins[iMin+1:]
+    lat0, lon0 = mesh.get_latLon_inds(iCell)
+    latNbrs, lonNbrs = mesh.get_latLon_inds(nbrs)
+    dNbrs = helpers.calc_distSphere_multiple(mesh.r, lat0, lon0, latNbrs, lonNbrs)
+    distMatrix[iMin,iMin] = 0.;
+    distMatrix[iMin,iMin+1:] = dNbrs[:]
+  for iMin in xrange(nMins):
+    #make d symmetric
+    distMatrix[:,iMin] = distMatrix[iMin,:]
+  
+  for iMin in xrange(nMins):
+    #take regional min for disk
+    iCell = localMins[iMin]
+    dNbrs = distMatrix[iMin,:]
+    
+    cellsRegion = localMins[dNbrs<mesh.rDisk]
+    valsRegion = vals[cellsRegion]
+    minVal = np.min(valsRegion)
+    #for >1 mins, keep the one with largest index.
+    #the particular condition (eg, keep largest index) doesn't matter, it just needs to be globally valid.
+    dupMins = cellsRegion[valsRegion==minVal]
+    minCell = np.max(dupMins)
+    #update if min isn't kept as regional min
+    if (iCell != minCell):
+      cellIsMin[iCell] = 0
+      cell2Site[iCell] = minCell
   print "Number of min after redirect: ", np.sum(cellIsMin>0)
   
   #follow local steepest path (and any redirections from, say, regional thresholds) to site
@@ -244,12 +251,11 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
   data.variables['nSitesMax'][iTime] = nSites
 #
 
-def run_segment(fSeg, info, dataMetr, cell0, mesh):
+def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes):
   
   nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
   dataSeg = write_netcdf_header_seg(fSeg, info, mesh.nCells, nSitesMax)
   
-  nTimes = len(dataMetr.dimensions['time'])
   for iTime in xrange(nTimes):
     print "Segmenting time index: ", iTime
     
@@ -268,7 +274,7 @@ def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
 
   #m = Basemap(projection='ortho',lon_0=100,lat_0=60, resolution='l')
   r2d = 180./np.pi
-  m = Basemap(projection='ortho',lon_0=0,lat_0=90, resolution='l')
+  m = Basemap(projection='ortho',lon_0=0,lat_0=89.95, resolution='l')
   x,y = m(lon*r2d, lat*r2d)
   #print x.shape, y.shape
 
@@ -289,8 +295,8 @@ def run_plotBasins(fDirSave, dataMetr, fSeg, mesh):
   if (True):
     #latLon cells will have duplicate points, which mucks up the triangulation
     #this is a quick hack but a more robust option may be needed...
-    sizeDelta = .01*np.pi/180.
-    dll = sizeDelta*np.random.random(mesh.nCells)
+    sizeDelta = .05*np.pi/180.
+    dll = sizeDelta*np.random.uniform(-1.,1,mesh.nCells)
     lat += dll
     lon += dll
   

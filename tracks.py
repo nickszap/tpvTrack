@@ -244,7 +244,6 @@ def plot_tracks_cells(fTracks, mesh, fDirSave):
   f = open(fTracks,'r')
   
   m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
-  r2d = 180./np.pi
   
   plt.figure()
   m.drawcoastlines()
@@ -282,12 +281,12 @@ def plot_tracks_metrics(fTracks, fSave):
   metricNames = ['thetaExtr', 'latExtr', 'lonExtr']
   latInd = metricNames.index('latExtr')
   lonInd = metricNames.index('lonExtr')
-  varInd = metricNames.index('thetaExtr'); varMin = 280.; varMax = 315.
+  varKey = 'thetaExtr'
+  varInd = metricNames.index(varKey); varMin = 280.; varMax = 325.
 
   trackList = read_tracks_metrics(fTracks, metricNames)
   
   m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
-  r2d = 180./np.pi
   
   #ax = plt.figure()
   ax = plt.gca()
@@ -295,8 +294,8 @@ def plot_tracks_metrics(fTracks, fSave):
   
   for track in trackList:
     nTimes = track.shape[0]
-    if (False):
-      if (nTimes<3):
+    if (True):
+      if (nTimes<4):
         continue
     
     lat = track[:,latInd]
@@ -311,17 +310,61 @@ def plot_tracks_metrics(fTracks, fSave):
     #plot track, with color representing value
     #m.plot(x,y, 'b-')
     vals = track[:,varInd]
-    colorline(x, y, z=vals, cmap=plt.get_cmap('Blues_r'), norm=plt.Normalize(varMin, varMax), linewidth=3, alpha=1.0, ax=ax)
+    colorline(x, y, z=vals, cmap=plt.get_cmap('RdBu_r'), norm=plt.Normalize(varMin, varMax), linewidth=3, alpha=1.0, ax=ax)
   
   #plt.colorbar()
-    
+  s = 'TPV {0}, [{1},{2}]'.format(varKey, varMin, varMax)
+  plt.title(s)
   if (True):
     plt.show()
   else:
     print "Saving image of tracks from {0}: {1}".format(fTracks,fSave)
     plt.savefig(fSave); plt.close()
     
+def demo_plotMetrics(fTracks):
 
+  metricNames = ['thetaExtr', 'latExtr']
+  #latInd = metricNames.index('latExtr')
+
+  trackList = read_tracks_metrics(fTracks, metricNames)
+  
+  for iMetric,metricName in enumerate(metricNames):
+  
+    plt.figure()
+  
+    for track in trackList:
+      nTimes = track.shape[0]
+      if (True):
+        if (nTimes<4):
+          continue
+      #lat = track[:,latInd]
+      plt.plot(track[:,iMetric])
+    
+    plt.title(metricName)
+    plt.show()
+
+def demo_compareMetrics(fTracks):
+  metricNames = ['rEquiv', 'vortMean']
+  #latInd = metricNames.index('latExtr')
+
+  trackList = read_tracks_metrics(fTracks, metricNames)
+  
+  plt.figure()
+
+  for track in trackList:
+    nTimes = track.shape[0]; #print track, track.shape
+    if (True):
+      if (nTimes<4):
+        continue
+    #lat = track[:,latInd]
+    plt.scatter(track[:,0], track[:,1])
+  
+  s = '{0} vs {1}'.format(metricNames[0], metricNames[1])
+  plt.title(s)
+  plt.tight_layout()
+  plt.ylim([1.e-6, 2.e-4]); plt.semilogy()
+  plt.show()
+    
 #The following 2 fcts are taken from:
 # http://nbviewer.ipython.org/github/dpsanders/matplotlib-examples/blob/master/colorline.ipynb
 def make_segments(x, y):

@@ -34,4 +34,6 @@ def calc_distSphere_multiple(r, lat1, lon1, lat2, lon2):
   dAngle = np.sqrt(latTerm+lonTerm)
   dist = 2.*r*np.arcsin(dAngle)
   
-  return(dist)
+  return dist
+
+

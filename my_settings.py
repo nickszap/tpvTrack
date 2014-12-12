@@ -6,7 +6,7 @@ import os, errno
 import numpy as np
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
-dFilter = 200.e3 #radius for whether nbr extremum is regional extremum
+dFilter = 300.e3 #radius for whether nbr extremum is regional extremum
 areaOverlap = .1 #fraction of tpv area overlap for determining correspondence
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
@@ -21,7 +21,7 @@ deltaT = 6.*60.*60. #timestep (s)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
 iTimeEnd_fData = [-1]
-if (True):
+if (True): #a quick check of specified times
   nFiles = len(filesData)
   if (len(iTimeStart_fData) != nFiles or len(iTimeEnd_fData) != nFiles):
     print "Uhoh, wrong iTime*_data settings in my_settings.py"

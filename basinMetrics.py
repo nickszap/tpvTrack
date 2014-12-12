@@ -79,6 +79,13 @@ def calc_area(basinInds, mesh):
   cellAreas = mesh.get_area_inds(basinInds)
   return np.sum(cellAreas)
 
+def get_minMax_cell2Site(site, cell2Site, theta):
+  inBasin = cell2Site==site
+  minVal = np.amin(theta[inBasin])
+  maxVal = np.amax(theta[inBasin])
+  
+  return (minVal,maxVal)
+
 metricKeys = 'circ vortMean ampMaxMin rEquiv thetaVol ampMean thetaExtr latExtr lonExtr'.split()
 def calc_metrics(sites, cell2Site, vort, theta, mesh):
   #calculate input basins' properties and return metrics as dictionary
@@ -266,11 +273,11 @@ def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
   
   if (True): #print out some info for basins near pole
     indLat = diffKeys.index('latExtr')
-    if (vals0[indLat]>85.):
-      print "-------Some info for TPVs near north pole------------\n"
-      print site0, vals0
-      print sites1, vals1
-      print d
+    if (vals0[indLat]>80.):
+      print "\n-------Some info for TPVs near north pole------------"
+      print "Site0 and lat: ", site0, vals0
+      print "Sites1 and lats: ", sites1, vals1
+      print "dMetricSpace: ", d
       print "-------------------\n"
    
   return d

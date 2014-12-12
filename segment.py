@@ -44,9 +44,10 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
   vals[inRegion<1] = bigVal
   '''
   
-  cell2Site = -np.ones(mesh.nCells,dtype=int) #so no cell2Site[iCell]=iCell      
-
+  cell2Site = -np.ones(mesh.nCells,dtype=int) #so no cell2Site[iCell]=iCell
+  
   #get local steepest path
+  dMin = min(1.e-6,mesh.r/mesh.nCells);
   for cell in iter(cell0.copy()):
     if (not cell.isInRegion()):
       continue
@@ -66,10 +67,13 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
       latNbrs, lonNbrs = mesh.get_latLon_inds(nbrs)
       
       dNbrs = helpers.calc_distSphere_multiple(mesh.r, lat0, lon0, latNbrs, lonNbrs)
-      dMin = min(1.e-6,mesh.r/mesh.nCells); dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
+      #dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
       #print valNbrs, dNbrs, val0
       valNbrs = (valNbrs-val0)/dNbrs
       iNbr = np.argmin(valNbrs)
+      if (True):
+        if (valNbrs[iNbr]>=0):
+          print "Uhoh. Steepest descent for cell {0}->{2} is {1}, which isn't negative!".format(iCell, valNbrs[iNbr], nbrs[iNbr])
       cell2Site[iCell] = nbrs[iNbr]
   
   #Filter local extrema by area to limit high (spatial) frequency "noise".
@@ -101,7 +105,7 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
     distMatrix[iMin,iMin+1:] = dNbrs[:]
   for iMin in xrange(nMins):
     #make d symmetric
-    distMatrix[:,iMin] = distMatrix[iMin,:]
+    distMatrix[iMin+1:,iMin] = distMatrix[iMin,iMin+1:]
   
   for iMin in xrange(nMins):
     #take regional min for disk
@@ -238,15 +242,15 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
   
   nSites = len(sitesMin)
   if (nSites>nSitesMax):
-    print "Uhoh. Only storing {0}/{1} sites".format(nSitesMax/nSites)
-    nSites = sitesMax
+    print "Uhoh. Only storing {0}/{1} sites".format(nSitesMax,nSites)
+    nSites = nSitesMax
   data.variables['sitesMin'][iTime,0:nSites] = sitesMin[0:nSites]
   data.variables['nSitesMin'][iTime] = nSites
   
   nSites = len(sitesMax)
   if (nSites>nSitesMax):
-    print "Uhoh. Only storing {0}/{1} sites".format(nSitesMax/nSites)
-    nSites = sitesMax
+    print "Uhoh. Only storing {0}/{1} sites".format(nSitesMax,nSites)
+    nSites = nSitesMax
   data.variables['sitesMax'][iTime,0:nSites] = sitesMax[0:nSites]
   data.variables['nSitesMax'][iTime] = nSites
 #
@@ -254,6 +258,7 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
 def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes):
   
   nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
+  nSitesMax = 3000
   dataSeg = write_netcdf_header_seg(fSeg, info, mesh.nCells, nSitesMax)
   
   for iTime in xrange(nTimes):

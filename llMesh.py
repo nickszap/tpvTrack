@@ -180,12 +180,12 @@ class Cell(object):
     return self
 
   def next(self): # Python 3: def __next__(self)
-    if self.ind >= self.mesh.nCells-1:
-      raise StopIteration
-    else:
+    if self.ind < self.mesh.nCells-1:
       self.ind = self.ind + 1
       self.iLat,self.iLon = helpers.index_1dTo2d(self.ind, self.mesh.nLon)
       return self
+    else:
+      raise StopIteration
   
   def copy(self):
     return Cell(self.mesh, self.ind)

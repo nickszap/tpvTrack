@@ -153,7 +153,7 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   #mesh.fill_latCellArea()
   mesh.fill_inDisk()
   mesh.fill_inRegion(latThresh)
-  cell0 = llMesh.Cell(mesh,0)
+  cell0 = llMesh.Cell(mesh,-1)
   
   #metr fields -----------------
   nFiles = len(filesDataIn)
@@ -215,7 +215,7 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   
   mesh = mpasMesh.Mesh(lat,lon, areaCell, cellsOnCell, nEdgesOnCell, r, dRegion)
   mesh.fill_inRegion(latThresh)
-  cell0 = mpasMesh.Cell(mesh,0)
+  cell0 = mpasMesh.Cell(mesh,-1)
   
   #metr fields -----------------
   nFiles = len(filesDataIn)

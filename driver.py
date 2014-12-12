@@ -42,14 +42,14 @@ def demo():
       mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
-  if (True):
+  if (False):
     print 'Cell index: ', cell0.ind, 'nbrs: ', cell0.get_nbrInds()
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); 
   nTimes = len(dataMetr.dimensions['time']); #nTimes = 5
   if (my_settings.doSeg):
-    segment.run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes)
+    segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes)
     if (False):
       segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   
@@ -121,7 +121,7 @@ def demo_algo_plots():
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r');
-  segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+  #segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   
   dataMetr.close()
   
@@ -129,7 +129,8 @@ def demo_algo_plots():
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
   dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-
+  
+  nTimes = len(dataSeg.dimensions['time'])
   correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
   
   dataMetrics.close()
@@ -144,6 +145,7 @@ def demo_algo_plots():
 
 if __name__=='__main__':
   demo()
-  #demo_plotTracks()
-  #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/200608/tracks_debug.txt')
+  #demo_algo_plots()
+  #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
+  #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_compareMetrics('/data02/cases/test_segment/testUnified/200608/tracks_debug.txt')

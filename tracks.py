@@ -364,7 +364,28 @@ def demo_compareMetrics(fTracks):
   plt.tight_layout()
   plt.ylim([1.e-6, 2.e-4]); plt.semilogy()
   plt.show()
-    
+
+def demo_plotLifetimes(fTracks):
+
+  metricNames = ['latExtr']
+  trackList = read_tracks_metrics(fTracks, metricNames)
+  
+  plt.figure()
+  
+  vals = []
+  for track in trackList:
+    nTimes = track.shape[0]
+    vals.append(nTimes)
+    if (np.sum(track[:,0]>70.)>7*4):
+      print nTimes, track
+  
+  if (True):
+    vals = [i for i in vals if i>6]
+  
+  plt.hist(vals, cumulative=True, bins=20)
+  plt.title('Lifetime (timesteps)')
+  plt.show()
+
 #The following 2 fcts are taken from:
 # http://nbviewer.ipython.org/github/dpsanders/matplotlib-examples/blob/master/colorline.ipynb
 def make_segments(x, y):

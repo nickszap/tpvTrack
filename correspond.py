@@ -151,13 +151,39 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
   
   return fracOverlap
 
+def check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, theta1):
+  #If the "air mass" persists, the PT range should overlap between corresponding TPVs.
+  #If not, do not correspond.
+  
+  #calculate bounds for each tpv that potentially matches another
+  nSites0 = len(sites0); nSites1 = len(sites1)
+  min0 = np.empty(nSites0, dtype=float); max0 = np.empty(nSites0, dtype=float);
+  min1 = np.empty(nSites1, dtype=float); max1 = np.empty(nSites1, dtype=float);
+  sitesCheck0, sitesCheck1 = np.nonzero(isMatch)
+  for ind in np.unique(sitesCheck0):
+    site = sites0[ind]
+    minVal, maxVal = basinMetrics.get_minMax_cell2Site(site, cell2Site0, theta0)
+    min0[ind] = minVal; max0[ind] = maxVal;
+  for ind in np.unique(sitesCheck1):
+    site = sites1[ind]
+    minVal, maxVal = basinMetrics.get_minMax_cell2Site(site, cell2Site1, theta1)
+    min1[ind] = minVal; max1[ind] = maxVal;
+    
+  #check to see if those bounds overlap
+  for iCheck in xrange(len(sitesCheck0)):
+    ind0 = sitesCheck0[iCheck]; ind1 = sitesCheck1[iCheck];
+    #essentially the intersection of 2 ordered line segments
+    rangeTop = min(max0[ind0],max1[ind1])
+    rangeBottom = max(min0[ind0],min1[ind1])
+    if (rangeTop<rangeBottom): #no overlap
+      isMatch[ind0,ind1] = 0
+  
+  return isMatch
+  
 def correspond(sites0, cell2Site0, u0, v0, dt, 
                sites1, cell2Site1, u1, v1, mesh,
                trackMinMaxBoth, fracOverlapThresh,
-               iTime0, dataMetrics):
-  
-  #area overlap -------------------
-  fracOverlap = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh)
+               iTime0, dataMetrics, theta0, theta1):
   
   #additional filters ---------------------
   #(1) feature properties a la cost function:
@@ -173,8 +199,14 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   #when consider cases like small TPVs breaking off of a large one
   
   #decide whether sites correspond --------------------------
+  #area overlap
+  fracOverlap = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh)
   isMatch = fracOverlap>fracOverlapThresh
-  print "Number of matches from correspondence: {0}".format(np.sum(isMatch))
+  print "Number of matches after horizontal overlap: {0}".format(np.sum(isMatch))
+  
+  #potential temperature overlap
+  isMatch = check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, theta1)
+  print "Number of matches after vertical overlap: {0}".format(np.sum(isMatch))
   
   #decide type of site correspondence (major vs. minor) ------------------
   #0-noMatch, 1-minor, 2-major
@@ -241,7 +273,9 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
     
     #metr data
     u0 = dataMetr.variables['u'][iTime,:]; v0 = dataMetr.variables['v'][iTime,:]
+    theta0 = dataMetr.variables['theta'][iTime,:]
     u1 = dataMetr.variables['u'][iTime+1,:]; v1 = dataMetr.variables['v'][iTime+1,:]
+    theta1 = dataMetr.variables['theta'][iTime+1,:]
     
     #which basins we want to track ----------------------------
     sites0 = []; sites1 = []
@@ -259,7 +293,7 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
     typeMatch = correspond(sites0, cell2Site0, u0, v0, dt,
                          sites1, cell2Site1, u1, v1, mesh,
                          trackMinMaxBoth, fracOverlapThresh,
-                         iTime, dataMetrics)
+                         iTime, dataMetrics, theta0, theta1)
                          
     write_corr_iTime(fCorr, iTime, sites0, sites1, typeMatch)
   

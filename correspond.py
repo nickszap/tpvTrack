@@ -74,13 +74,24 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
   nPts = len(latPts);
   advCells = np.empty(nPts, dtype=int)
   guessCell = siteInd #used for mpas meshes
-  
+  inDomain = [] #used for LAM meshes
+  if ('wrf' in mesh.info):
+    inDomain = np.ones(nPts,dtype=int)
+    
   for iPt in xrange(nPts):
     if (mesh.info == 'mpas'):
       advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt], guessCell=guessCell)
       guessCell = advCells[iPt]
+    elif ('wrf' in mesh.info):
+      advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
+      inDomain = mesh.isPointInDomain(latPts[iPt], lonPts[iPt], advCells[iPt])
     else:
       advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
+  
+  if ('wrf' in mesh.info):
+    #we'll just ignore points that advect outside the domain
+    print "Number of points advected outside of domain: ", np.sum(inDomain==0)
+    advCells = advCells[inDomain>0]
   
   if (False):
     latCell, lonCell = mesh.get_latLon_inds(advCells)

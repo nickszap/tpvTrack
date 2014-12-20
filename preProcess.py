@@ -10,6 +10,7 @@ import netCDF4
 import helpers
 import llMesh
 import mpasMesh
+import wrfUniformMesh as wrfMesh
 
 def get_missingCells_file(data):
   #if search vertical column down from top, there can be no 2pvu value if:
@@ -120,42 +121,17 @@ def calc_vertVorticity_ll(u, v, nLat, nLon, lat, r):
   vort[iLat,:] = undS/areaCap
   
   return vort
+   
+def calc_vorticity_wrfTrop_uniform(u, v, dx, dy):
+  #Steven's files have variables already processed to cell centers.
+  #u,v come in ordered [south_north=y, west_east=x]
+  #we'll use numpy.gradient for the finite difference,
+  #e.g., http://stackoverflow.com/questions/17901363/gradient-calculation-with-python
+  
+  du_dy, du_dx = np.gradient(u, dy, dx)
+  dv_dy, dv_dx = np.gradient(v, dy, dx)
+  return dv_dx-du_dy
 
-def calc_vertVorticity_wrf(U,V,MSFU,MSFV,MSFT,DX,DY,NX,NY):
-  '''
-  Adapted from DCOMPUTEABSVORT(AV,U,V,MSFU,MSFV,MSFT,COR,DX,DY,NX,NY,
-     +                           NZ,NXP1,NYP1)
-  from NCL source code (https://github.com/yyr/ncl/blob/master/ni/src/lib/nfpfort/wrf_pvo.f)
-  
-  u,v: unstaggered grid-relative winds
-  msf{u,v,t}: map-scale factors
-  d{x,y}: computational grid spacing
-  N{x,y}: # of cells in each direction
-  2D arrays are indexed on the grid (S_N=v, W_E=u)
-  '''
-  
-  #for interior cells, do finite difference between neighboring cells, e.g., (valNorth-valSouth)/2dy.
-  #to get u at midpt of horizontal cell, average left and right boundaries.
-  vort = np.empty((NX,NY),dtype=float)
-  for J in xrange(NY):
-    JP1 = min(J+1,NY-1)
-    JM1 = max(J-1,0)
-    for I in xrange(NX):
-      IP1 = min(I+1,NX-1)
-      IM1 = max(I-1,0)
-      
-      DSX = (IP1-IM1)*DX
-      DSY = (JP1-JM1)*DY
-      MM = MSFT(j,i)*MSFT(j,i)
-      
-      du_dy = .5* (U(JP1,I)/MSFU(JP1,I)+ U(JP1,I+1)/MSFU(JP1,I+1) -
-                   U(JM1,I)/MSFU(JM1,I)- U(JM1,I+1)/MSFU(JM1,I+1))/(DSY/MM)
-      #
-      dv_dx = .5*(V(J,IP1)/MSFV(J,IP1)+ V(J+1,IP1)/MSFV(J+1,IP1) -
-                  V(J,IM1)/MSFV(J,IM1)+ V(J+1,IM1)/MSFV(J+1,IM1))/(DSX/MM)
-      #
-      vort(I,J) = dv_dx-du_dy
-  
 def calc_potentialTemperature(tmp, press):
     
   Cp = 1004.5; Rd = 287.04;
@@ -291,7 +267,163 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   
   return mesh, cell0
 
-def demo_wrf(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='wrf case'):
+def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='wrf case', pvIndex=3):
+  #For Steven's wrfout_trop files that have already been processed in a particular way.
+  #I think the grid is oriented such that u,v are both grid and global zonal,meridional velocities.
+  #If this isn't true, there's some figuring out to do.
+  
+  #mesh ---------------------
+  data = netCDF4.Dataset(fMesh,'r')
+  d2r = np.pi/180.; 
+  lat = data.variables['XLAT'][0,:,:]*d2r; lon = data.variables['XLONG'][0,:,:]*d2r
+  dx = data.DX
+  dy = data.DY
+  #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
+  lon = lon%(2.*np.pi)
+  data.close()
+  
+  mesh = wrfMesh.Mesh(lat,lon, dx, dy, r, dRegion)
+  mesh.fill_inRegion(latThresh)
+  mesh.fill_cellArea()
+  cell0 = wrfMesh.Cell(mesh,-1)
+  
+  #metr fields -----------------
+  nFiles = len(filesDataIn)
+  if (nFiles<1):
+    return mesh, cell0
+  
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  iTimeGlobal = 0
+  for iFile in xrange(nFiles):
+    fPath = filesDataIn[iFile]
+    data = netCDF4.Dataset(fPath,'r')
+    
+    #loop over individual times ------------------------------
+    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
+    #for iTime in xrange(nTimes):
+    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
+    if (iTimeEnd<0): #use all times in file
+      nTimes = len(data.dimensions['time']);
+      iTimeEnd = nTimes-1
+    for iTime in xrange(iTimeStart,iTimeEnd+1):
+      #read from file
+      theta = data.variables['THETA'][iTime,pvIndex,:,:]
+      u = data.variables['U'][iTime,pvIndex,:,:]
+      v = data.variables['V'][iTime,pvIndex,:,:]
+      
+      #fill in missing values w/in region
+      #apparently netCDF4 doesn't return a masked array if all masks are False
+      try:
+        print "Time {0}, number of missing values: {1}".format(iTimeGlobal, np.sum(theta.mask))
+        for var in (theta, u, v):
+          #we'll just replace missing values with global mean
+          meanVal = np.mean(var); print "Replacing values with: ",meanVal
+          var[var.mask==True] = meanVal
+        #print "Missing values still in theta? ", True in theta.mask
+        theta = theta.data;
+        u = u.data
+        v = v.data
+      except AttributeError:
+        print "Time {0}, number of missing values: {1}".format(iTimeGlobal,0)
+      
+      #compute additional fields
+      vort = calc_vorticity_wrfTrop_uniform(u, v, dx, dy)
+    
+      #write to file
+      u = helpers.flatten_2dTo1d(u, mesh.ny, mesh.nx)
+      v = helpers.flatten_2dTo1d(v, mesh.ny, mesh.nx)
+      theta = helpers.flatten_2dTo1d(theta, mesh.ny, mesh.nx)
+      vort = helpers.flatten_2dTo1d(vort, mesh.ny, mesh.nx)
+      
+      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
+      iTimeGlobal = iTimeGlobal+1
+    #end iTime
+  #end iFile
+  dataOut.close()
+  
+  return mesh, cell0  
+
+def write_netcdf_header_metr(fName, info, nCells):
+  
+  data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
+  data.description = info
+  
+  # dimensions
+  data.createDimension('time', None)
+  data.createDimension('nCells', nCells)
+
+  # variables
+  u_data = data.createVariable('u', 'f8', ('time','nCells',))
+  v_data = data.createVariable('v', 'f8', ('time','nCells',))
+  theta_data = data.createVariable('theta', 'f8', ('time','nCells',))
+  vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
+  
+  #units and descriptions
+  u_data.units = 'm/s'
+  v_data.units = 'm/s'
+  theta_data.units = 'K'
+  vort_data.units = '1/s'
+  
+  return data
+  
+def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
+  # fill file. with time as unlimited, dimension will just keep growing
+  
+  data.variables['u'][iTime,:] = u[:]
+  data.variables['v'][iTime,:] = v[:]
+  data.variables['theta'][iTime,:] = theta[:]
+  data.variables['vort'][iTime,:] = vort[:]
+#
+
+
+
+
+# ------------------------- Untested code --------------------------------
+
+def calc_vertVorticity_wrf(U,V,MSFU,MSFV,MSFT,DX,DY,NX,NY):
+  print "Uhoh. calc_vertVorticity_wrf function is untested!!!"
+  '''
+  Adapted from DCOMPUTEABSVORT(AV,U,V,MSFU,MSFV,MSFT,COR,DX,DY,NX,NY,
+     +                           NZ,NXP1,NYP1)
+  from NCL source code (https://github.com/yyr/ncl/blob/master/ni/src/lib/nfpfort/wrf_pvo.f)
+  
+  u,v: unstaggered grid-relative winds
+  msf{u,v,t}: map-scale factors
+  d{x,y}: computational grid spacing
+  N{x,y}: # of cells in each direction
+  2D arrays are indexed on the grid (S_N=v, W_E=u)
+  
+  For a uniform grid, could just do:
+  du_dy, du_dx = np.gradient(u, dy, dx)
+  dv_dy, dv_dx = np.gradient(v, dy, dx)
+  return dv_dx-du_dy
+  '''
+  
+  #for interior cells, do finite difference between neighboring cells, e.g., (valNorth-valSouth)/2dy.
+  #to get u at midpt of horizontal cell, average left and right boundaries.
+  vort = np.empty((NX,NY),dtype=float)
+  for J in xrange(NY):
+    JP1 = min(J+1,NY-1)
+    JM1 = max(J-1,0)
+    for I in xrange(NX):
+      IP1 = min(I+1,NX-1)
+      IM1 = max(I-1,0)
+      
+      DSX = (IP1-IM1)*DX
+      DSY = (JP1-JM1)*DY
+      MM = MSFT[j,i]*MSFT[j,i]
+      
+      du_dy = .5* (U[JP1,I]/MSFU[JP1,I]+ U[JP1,I+1]/MSFU[JP1,I+1] -
+                   U[JM1,I]/MSFU[JM1,I]- U[JM1,I+1]/MSFU[JM1,I+1])/(DSY/MM)
+      #
+      dv_dx = .5*(V[J,IP1]/MSFV[J,IP1]+ V[J+1,IP1]/MSFV[J+1,IP1] -
+                  V[J,IM1]/MSFV[J,IM1]+ V[J+1,IM1]/MSFV[J+1,IM1])/(DSX/MM)
+      #
+      vort[I,J] = dv_dx-du_dy
+      
+  return vort
+  
+def demo_wrfUntested(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='wrf case'):
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
   d2r = np.pi/180.; 
@@ -356,36 +488,4 @@ def demo_wrf(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fDa
   dataOut.close()
   
   return mesh, cell0  
-  
-def write_netcdf_header_metr(fName, info, nCells):
-  
-  data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
-  data.description = info
-  
-  # dimensions
-  data.createDimension('time', None)
-  data.createDimension('nCells', nCells)
-
-  # variables
-  u_data = data.createVariable('u', 'f8', ('time','nCells',))
-  v_data = data.createVariable('v', 'f8', ('time','nCells',))
-  theta_data = data.createVariable('theta', 'f8', ('time','nCells',))
-  vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
-  
-  #units and descriptions
-  u_data.units = 'm/s'
-  v_data.units = 'm/s'
-  theta_data.units = 'K'
-  vort_data.units = '1/s'
-  
-  return data
-  
-def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
-  # fill file. with time as unlimited, dimension will just keep growing
-  
-  data.variables['u'][iTime,:] = u[:]
-  data.variables['v'][iTime,:] = v[:]
-  data.variables['theta'][iTime,:] = theta[:]
-  data.variables['vort'][iTime,:] = vort[:]
-#
 

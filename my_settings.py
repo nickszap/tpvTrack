@@ -6,15 +6,16 @@ import os, errno
 import numpy as np
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
-dFilter = 300.e3 #radius for whether nbr extremum is regional extremum
+dFilter = 250.e3 #radius for whether nbr extremum is regional extremum
 areaOverlap = .1 #fraction of tpv area overlap for determining correspondence
 
-latThresh = 30.*np.pi/180. #segment N of this latitude
+latThresh = 10.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max, 2-both
-info = '30N_eraI'
+info = '30N_wrf_trop'
 
-fDirData = '/data02/cases/summer2006/eraI/pv/'
-filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01*.nc'), key=os.path.getmtime)
+#fDirData = '/data02/cases/summer2006/eraI/pv/'
+fDirData = '/data01/tracks/wrf/data/'
+filesData = sorted(glob.glob(fDirData+'wrfout_trop*.nc'), key=os.path.getmtime)
 print filesData
 
 deltaT = 6.*60.*60. #timestep (s)
@@ -26,7 +27,8 @@ if (True): #a quick check of specified times
   if (len(iTimeStart_fData) != nFiles or len(iTimeEnd_fData) != nFiles):
     print "Uhoh, wrong iTime*_data settings in my_settings.py"
 
-fDirSave = '/data02/cases/test_segment/testUnified/summer2006/'
+#fDirSave = '/data02/cases/test_segment/testUnified/summer2006/'
+fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
 
@@ -37,7 +39,7 @@ fCorr = fDirSave+'correspond_debug.pkl'
 fTrack = fDirSave+'tracks_debug.txt'
 fMetrics = fDirSave+'metrics_debug.nc'
 
-inputType = 'eraI'
+inputType = 'wrf_trop'
 doPreProc = False
 doSeg = True
 doMetrics = True

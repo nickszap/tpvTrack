@@ -32,6 +32,8 @@ def demo():
                                   my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
     elif (my_settings.inputType=='mpas'):
       mesh, cell0 = preProcess.demo_mpas(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
+    elif (my_settings.inputType=='wrf_trop'):
+      mesh, cell0 = preProcess.demo_wrfTrop(fMesh, filesData, fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
   else:
@@ -121,7 +123,7 @@ def demo_algo_plots():
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r');
-  #segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+  segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
   
   dataMetr.close()
   

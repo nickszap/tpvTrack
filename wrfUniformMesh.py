@@ -39,7 +39,7 @@ class Mesh(object):
     #given a point and closest cell, return whether that point is actually within the domain.
     #for a temporary solution, we'll say that a point who's closest cell is on the border of the
     #domain is actually outside the domain.
-    iy, ix = helpers.index_1dTo2d(iCell, mesh.nx)
+    iy, ix = helpers.index_1dTo2d(iCell, self.nx)
     
     inDomain = True
     if (iy==0 or iy==self.ny-1):
@@ -51,18 +51,21 @@ class Mesh(object):
     return inDomain
   
   def get_closestCell2Pt(self, latPt, lonPt):
-    dLat = np.absolute(self.lat-latPt)
-    dLon = np.absolute(self.lon-lonPt)
-    lonWt = np.absolute(np.cos(latPt))
-    d = lonWt*dLon+dLat
+    dLat = self.lat-latPt
+    dLon = self.lon-lonPt
+    lonWt = np.cos(latPt); dLon = dLon*lonWt
+    d = dLat*dLat+dLon*dLon
     iCell = np.argmin(d)
+    if (False):
+      r2d = 180./np.pi
+      print "Closest cell {0},{1} to coordinate {2},{3}".format(self.lat[iCell]*r2d, self.lon[iCell]*r2d, latPt*r2d, lonPt*r2d)
     return iCell
   
   def fill_inRegion(self, latThresh):
     self.inRegion[self.lat<latThresh] = 0
   
   def get_inRegion1d(self):
-    return self.inRegion>0
+    return self.inRegion[:]>0
   
   def isIndsInRegion(self, inds):
     return self.inRegion[inds]>0

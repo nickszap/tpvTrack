@@ -84,19 +84,20 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
       guessCell = advCells[iPt]
     elif ('wrf' in mesh.info):
       advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
-      inDomain = mesh.isPointInDomain(latPts[iPt], lonPts[iPt], advCells[iPt])
+      inDomain[iPt] = mesh.isPointInDomain(latPts[iPt], lonPts[iPt], advCells[iPt])
     else:
       advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
   
   if ('wrf' in mesh.info):
     #we'll just ignore points that advect outside the domain
-    print "Number of points advected outside of domain: ", np.sum(inDomain==0)
+    #print "Number of points advected outside of domain: ", np.sum(inDomain==0)
     advCells = advCells[inDomain>0]
   
   if (False):
     latCell, lonCell = mesh.get_latLon_inds(advCells)
     print latPts; print lonPts
     print latCell; print lonCell
+    print advCells
     m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
     r2d = 180./np.pi
     plt.figure()
@@ -136,6 +137,7 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
     #advect basin -dt/2
     sites2Cells_t1[iSite1] = advect_basin(siteInd, cell2Site1, mesh, u1, v1, -.5*dt)
     areaBasin1[iSite1] = np.sum( mesh.get_area_inds(sites2Cells_t1[iSite1]) )
+  #print areaBasin1
     
   #see which t0 sites advected dt/2 overlap with future sites advected back
   for iSite0 in xrange(nSites0):
@@ -143,6 +145,7 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
     #advect basin +dt/2
     site2Cells_t0 = advect_basin(siteInd, cell2Site0, mesh, u0, v0, .5*dt)
     areaBasin0 = np.sum( mesh.get_area_inds(site2Cells_t0) )
+    #print areaBasin0
     
     for iSite1 in xrange(nSites1):
       #for frac overlap, there's a choice for what cells to use.
@@ -152,8 +155,12 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
       commonCells = getCommon_1dInd(site2Cells_t0, sites2Cells_t1[iSite1])
       areaCommon = np.sum( mesh.get_area_inds(commonCells) )
       
+      #Note that areas can be zero for LAM where point advects out of domain.
       potentialArea = min(areaBasin0, areaBasin1[iSite1])
-      frac = areaCommon/potentialArea
+      #Avoid divide by 0
+      frac = 0
+      if (potentialArea>0):
+        frac = areaCommon/potentialArea
       fracOverlap[iSite0, iSite1] = frac
   
   if (True):
@@ -216,8 +223,9 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   print "Number of matches after horizontal overlap: {0}".format(np.sum(isMatch))
   
   #potential temperature overlap
-  isMatch = check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, theta1)
-  print "Number of matches after vertical overlap: {0}".format(np.sum(isMatch))
+  if (False):
+    isMatch = check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, theta1)
+    print "Number of matches after vertical overlap: {0}".format(np.sum(isMatch))
   
   #decide type of site correspondence (major vs. minor) ------------------
   #0-noMatch, 1-minor, 2-major

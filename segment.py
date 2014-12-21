@@ -67,7 +67,7 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
       latNbrs, lonNbrs = mesh.get_latLon_inds(nbrs)
       
       dNbrs = helpers.calc_distSphere_multiple(mesh.r, lat0, lon0, latNbrs, lonNbrs)
-      #dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
+      dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
       #print valNbrs, dNbrs, val0
       valNbrs = (valNbrs-val0)/dNbrs
       iNbr = np.argmin(valNbrs)

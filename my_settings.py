@@ -43,9 +43,9 @@ fTrack = fDirSave+'tracks_debug.txt'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'wrf_trop'
-doPreProc = True
-doSeg = True
-doMetrics = True
+doPreProc = False
+doSeg = False
+doMetrics = False
 doCorr = True
 doTracks = True
 

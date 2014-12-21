@@ -1,3 +1,4 @@
+import numpy as np
 import netCDF4
 import matplotlib.pyplot as plt
 
@@ -146,9 +147,41 @@ def demo_algo_plots():
   
   #time metrics ----------------------
 
+def debug_helper():
+  #setup -----------------
+  info = my_settings.info
+  filesData = my_settings.filesData
+  fMesh = my_settings.fMesh  
+  fMetr = my_settings.fMetr
+  fSeg = my_settings.fSeg
+  fCorr = my_settings.fCorr
+  fTrack = my_settings.fTrack
+  fMetrics = my_settings.fMetrics
+  
+  rEarth = my_settings.rEarth
+  dRegion = my_settings.dFilter
+  latThresh = my_settings.latThresh
+  
+  #pre-process ------------------------
+  #if already processed input data
+  if (my_settings.inputType=='eraI'):
+    mesh, cell0 = preProcess.demo_eraI(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
+  elif (my_settings.inputType=='mpas'):
+    mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
+  elif (my_settings.inputType=='wrf_trop'):
+      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, None)
+  else:
+    print "Unrecognized input type in my_settings: ",my_settings.inputType
+    
+  cells = np.arange(1000,1010)
+  print mesh.get_latLon_inds(cells)
+  print mesh.get_area_inds(cells)
+  print mesh.isIndsInRegion(cells)
+
 if __name__=='__main__':
-  demo()
-  #demo_algo_plots()
+  #demo()
+  #debug_helper()
+  demo_algo_plots()
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_compareMetrics('/data02/cases/test_segment/testUnified/200608/tracks_debug.txt')

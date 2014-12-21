@@ -31,7 +31,8 @@ def demo():
     elif (my_settings.inputType=='mpas'):
       mesh, cell0 = preProcess.demo_mpas(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
     elif (my_settings.inputType=='wrf_trop'):
-      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info, pvIndex=3)
+      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, 
+                                             my_settings.fileMap, info=info, pvIndex=3)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
   else:
@@ -41,7 +42,7 @@ def demo():
     elif (my_settings.inputType=='mpas'):
       mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
     elif (my_settings.inputType=='wrf_trop'):
-      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
+      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, None)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
   
@@ -117,7 +118,7 @@ def demo_algo_plots():
   elif (my_settings.inputType=='mpas'):
     mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
   elif (my_settings.inputType=='wrf_trop'):
-      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
+      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, None)
   else:
     print "Unrecognized input type in my_settings: ",my_settings.inputType
   
@@ -146,8 +147,8 @@ def demo_algo_plots():
   #time metrics ----------------------
 
 if __name__=='__main__':
-  #demo()
-  demo_algo_plots()
+  demo()
+  #demo_algo_plots()
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_compareMetrics('/data02/cases/test_segment/testUnified/200608/tracks_debug.txt')

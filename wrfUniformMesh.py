@@ -39,12 +39,12 @@ class Mesh(object):
     #given a point and closest cell, return whether that point is actually within the domain.
     #for a temporary solution, we'll say that a point who's closest cell is on the border of the
     #domain is actually outside the domain.
-    iy, ix = helpers.index_1dTo2d(ind, mesh.nx)
+    iy, ix = helpers.index_1dTo2d(iCell, mesh.nx)
     
     inDomain = True
-    if (iy==0 or self.ny-1):
+    if (iy==0 or iy==self.ny-1):
       inDomain = False
-    elif (ix==0 or self.nx-1):
+    elif (ix==0 or ix==self.nx-1):
       inDomain = False
     #fwiw, False==0 and True==1 are standard in Python 2.6 and 3. It's likely entrenched enough to work with as such 
     

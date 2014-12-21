@@ -17,6 +17,7 @@ info = '10N_wrf_trop'
 fDirData = '/data01/tracks/wrf/data/'
 filesData = sorted(glob.glob(fDirData+'wrfout_trop*'), key=os.path.getmtime)
 print filesData
+fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
 
 deltaT = 6.*60.*60. #timestep (s)
 #select time intervals within filesData[iFile]...end[-1] means use all times

@@ -267,7 +267,7 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   
   return mesh, cell0
 
-def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='wrf case', pvIndex=3):
+def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, fMapProj, info='wrf case', pvIndex=3):
   #For Steven's wrfout_trop files that have already been processed in a particular way.
   #I think the grid is oriented such that u,v are both grid and global zonal,meridional velocities.
   #If this isn't true, there's some figuring out to do.
@@ -291,6 +291,11 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   nFiles = len(filesDataIn)
   if (nFiles<1):
     return mesh, cell0
+  
+  dataProj = netCDF4.Dataset(fMapProj,'r')
+  cosalpha = dataProj.variables['COSALPHA'][0,:,:]
+  sinalpha = dataProj.variables['SINALPHA'][0,:,:]
+  dataProj.close()
   
   dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
   iTimeGlobal = 0
@@ -328,7 +333,11 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
       
       #compute additional fields
       vort = calc_vorticity_wrfTrop_uniform(u, v, dx, dy)
-    
+      #rotate grid-relative wind to global
+      uGlobal = u*cosalpha+v*sinalpha
+      vGlobal = -u*sinalpha+v*cosalpha
+      u = uGlobal; v = vGlobal
+      
       #write to file
       u = helpers.flatten_2dTo1d(u, mesh.ny, mesh.nx)
       v = helpers.flatten_2dTo1d(v, mesh.ny, mesh.nx)

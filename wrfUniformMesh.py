@@ -31,9 +31,11 @@ class Mesh(object):
     self.rDisk = rDisk
     self.info = 'wrf'
     
-  def fill_cellArea(self):
-    areaCell = calc_area(self.dx, self.dy, 1)
-    self.areaCell[:] = areaCell
+  def fill_cellArea(self, mapFac2d):
+    mapFac1d = helpers.flatten_2dTo1d(mapFac2d, self.ny, self.nx) 
+    #The above takes scalar to 1-element array since it's just calling np.ravel(). If flatten_2dTo1d changes, make sure that still works!!!
+    areaCell = calc_area(self.dx, self.dy, mapFac1d)
+    self.areaCell[:] = areaCell #works for both cases of RHS is single value or array with same size
   
   def isPointInDomain(self, latPt, lonPt, iCell):
     #given a point and closest cell, return whether that point is actually within the domain.
@@ -51,10 +53,9 @@ class Mesh(object):
     return inDomain
   
   def get_closestCell2Pt(self, latPt, lonPt):
-    dLat = self.lat-latPt
-    dLon = self.lon-lonPt
-    lonWt = np.cos(latPt); dLon = dLon*lonWt
-    d = dLat*dLat+dLon*dLon
+    #distance from all points is a brute force solution.
+    #there are some more sophisticated things like walking nearest nbrs from, say, the closest of 10 predefined sites.
+    d = calc_distSphere_multiple(1.0, latPt, lonPt, self.lat, self.lon)
     iCell = np.argmin(d)
     if (False):
       r2d = 180./np.pi

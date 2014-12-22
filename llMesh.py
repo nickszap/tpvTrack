@@ -5,7 +5,7 @@ import numpy as np
 
 import helpers
 
-print "Expected format: lats[0->1] goes South. lons[0->1] goes east.\n" #matters in forming searchDisk
+#print "Expected format: lats[0->1] goes South. lons[0->1] goes east.\n" #matters in forming searchDisk
 
 def area_latLonCell(latN, latS, dLon, r):
   #input angles in radians of northern bound, southern bound, and width of rectangle in radians

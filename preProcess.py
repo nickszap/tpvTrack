@@ -6,6 +6,8 @@ metr: u,v,theta,verticalVorticity,inRegion on DT
 
 import numpy as np
 import netCDF4
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
 
 import helpers
 import llMesh
@@ -171,7 +173,7 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   if (nFiles<1):
     return mesh, cell0
   
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
   iTimeGlobal = 0
   for iFile in xrange(nFiles):
     fPath = filesDataIn[iFile]
@@ -233,7 +235,7 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   if (nFiles<1):
     return mesh, cell0
   
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
   iTimeGlobal = 0
   for iFile in xrange(nFiles):
     fPath = filesDataIn[iFile]
@@ -274,6 +276,7 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
+  dataProj = netCDF4.Dataset(fMapProj,'r')
   d2r = np.pi/180.; 
   lat = data.variables['XLAT'][0,:,:]*d2r; lon = data.variables['XLONG'][0,:,:]*d2r
   dx = data.DX
@@ -284,7 +287,10 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   
   mesh = wrfMesh.Mesh(lat,lon, dx, dy, r, dRegion)
   mesh.fill_inRegion(latThresh)
-  mesh.fill_cellArea()
+  
+  mapFac = dataProj.variables['MAPFAC_M'][0,:,:]
+  #mapFac = 1.0
+  mesh.fill_cellArea(mapFac)
   cell0 = wrfMesh.Cell(mesh,-1)
   
   #metr fields -----------------
@@ -292,12 +298,11 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   if (nFiles<1):
     return mesh, cell0
   
-  dataProj = netCDF4.Dataset(fMapProj,'r')
   cosalpha = dataProj.variables['COSALPHA'][0,:,:]
   sinalpha = dataProj.variables['SINALPHA'][0,:,:]
   dataProj.close()
   
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
   iTimeGlobal = 0
   for iFile in xrange(nFiles):
     fPath = filesDataIn[iFile]
@@ -333,9 +338,9 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
       
       #compute additional fields
       vort = calc_vorticity_wrfTrop_uniform(u, v, dx, dy)
-      #rotate grid-relative wind to global
-      uGlobal = u*cosalpha+v*sinalpha
-      vGlobal = -u*sinalpha+v*cosalpha
+      #rotate grid-relative wind to global (apparently the stored rotation is for earth->grid)
+      uGlobal = u*cosalpha-v*sinalpha
+      vGlobal = u*sinalpha+v*cosalpha
       u = uGlobal; v = vGlobal
       
       #write to file
@@ -352,26 +357,37 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   
   return mesh, cell0  
 
-def write_netcdf_header_metr(fName, info, nCells):
+def write_netcdf_header_metr(fName, info, mesh):
   
   data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
   data.description = info
   
   # dimensions
+  nCells = mesh.nCells
   data.createDimension('time', None)
   data.createDimension('nCells', nCells)
 
   # variables
+  latCell_data = data.createVariable('latCell', 'f8', ('nCells',))
+  lonCell_data = data.createVariable('lonCell', 'f8', ('nCells',))
   u_data = data.createVariable('u', 'f8', ('time','nCells',))
   v_data = data.createVariable('v', 'f8', ('time','nCells',))
   theta_data = data.createVariable('theta', 'f8', ('time','nCells',))
   vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
   
   #units and descriptions
+  latCell_data.units = 'radians'
+  lonCell_data.units = 'radians'
   u_data.units = 'm/s'
   v_data.units = 'm/s'
   theta_data.units = 'K'
   vort_data.units = '1/s'
+  
+  #fill lat/lon
+  allCells = np.arange(nCells)
+  lat, lon = mesh.get_latLon_inds(allCells)
+  data.variables['latCell'][:] = lat[:]
+  data.variables['lonCell'][:] = lon[:]
   
   return data
   
@@ -384,9 +400,35 @@ def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
   data.variables['vort'][iTime,:] = vort[:]
 #
 
+def plot_metr(fMetr):
+  data = netCDF4.Dataset(fMetr,'r')
+  nTimes = len(data.dimensions['time'])
+  lat = data.variables['latCell'][:]*180./np.pi
+  lon = data.variables['lonCell'][:]*180./np.pi
+  
+  m = Basemap(projection='ortho',lon_0=0,lat_0=90., resolution='l')
+  x,y = m(lon, lat)
+  
+  keys = ['u','v','theta','vort']
+  bounds = [[-50.,50.], [-50.,50.], [270.,360.], [-1.e-4,1.e-4]]
+  for iTime in xrange(nTimes):
+    for iKey in xrange(len(keys)):
+      key = keys[iKey]
+      keyRange = bounds[iKey]; keyMin = keyRange[0]; keyMax = keyRange[1]
+      plt.figure()
+      vals = data.variables[key][iTime,:]
+      m.drawcoastlines()
+      m.pcolor(x,y,vals,tri=True, shading='flat',edgecolors='none',cmap=plt.cm.RdBu_r, vmin=keyMin, vmax=keyMax)
+      plt.colorbar()
+      plt.title(key)
+      
+      s = '{0}_t{1}.png'.format(key, iTime)
+      plt.savefig(s, bbox_inches='tight'); plt.close()
 
-
-
+if __name__ == '__main__':
+  fMetr = '/data01/tracks/wrf/algo/fields_debug.nc'
+  plot_metr(fMetr)
+      
 # ------------------------- Untested code --------------------------------
 
 def calc_vertVorticity_wrf(U,V,MSFU,MSFV,MSFT,DX,DY,NX,NY):
@@ -452,7 +494,7 @@ def demo_wrfUntested(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeS
   if (nFiles<1):
     return mesh, cell0
   
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh.nCells)
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
   iTimeGlobal = 0
   for iFile in xrange(nFiles):
     fPath = filesDataIn[iFile]

@@ -6,7 +6,7 @@ import os, errno
 import numpy as np
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
-dFilter = 300.e3 #radius for whether nbr extremum is regional extremum
+dFilter = 300.e3 #radius for whether local extremum is regional extremum
 areaOverlap = .1 #fraction of tpv area overlap for determining correspondence
 
 latThresh = 10.*np.pi/180. #segment N of this latitude
@@ -19,7 +19,7 @@ filesData = sorted(glob.glob(fDirData+'wrfout_trop*'), key=os.path.getmtime)
 print filesData
 fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
 
-deltaT = 6.*60.*60. #timestep (s)
+deltaT = 6.*60.*60. #timestep between file times (s)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
 iTimeEnd_fData = [-1]
@@ -43,11 +43,11 @@ fTrack = fDirSave+'tracks_debug.txt'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'wrf_trop'
-doPreProc = False
+doPreProc = True
 doSeg = False
 doMetrics = False
-doCorr = True
-doTracks = True
+doCorr = False
+doTracks = False
 
 def silentremove(filename):
   #from http://stackoverflow.com/questions/10840533/most-pythonic-way-to-delete-a-file-which-may-not-exist

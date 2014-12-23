@@ -179,9 +179,9 @@ def debug_helper():
   print mesh.isIndsInRegion(cells)
 
 if __name__=='__main__':
-  demo()
+  #demo()
   #debug_helper()
-  #demo_algo_plots()
+  demo_algo_plots()
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_compareMetrics('/data02/cases/test_segment/testUnified/200608/tracks_debug.txt')

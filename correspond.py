@@ -197,6 +197,34 @@ def check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, th
       isMatch[ind0,ind1] = 0
   
   return isMatch
+
+def get_correspondMetrics(dataMetrics, iTime):
+  #It's slow to load 1 value at a time from file.
+  #So, we can get (load,calculate?) values for all sites at a given time.
+  diffKeys = ['thetaExtr', 'latExtr']; nKeys = len(diffKeys)
+  refDiffs = [1.0, 2.0]
+  
+  nSites = dataMetrics.variables['nSites'][iTime]
+  valsOut = np.empty((nKeys,nSites),dtype=float)
+  for iKey in xrange(nKeys):
+    key = diffKeys[iKey]
+    vals = dataMetrics.variables[key][iTime,:]
+    vals = vals[0:nSites]
+    
+    valsOut[iKey,:] = vals[:]
+    
+  return (valsOut, refDiffs)
+  
+def calc_basinSimilarity(vals0, vals1, refDiffs):
+  #Input vals[variable,sites]
+  
+  nKeys, nSites1 = vals1.shape
+  d = np.zeros(nSites1,dtype=float)
+  for iKey in xrange(nKeys):
+    diffs = np.absolute( vals1[iKey,:]-vals0[iKey] )
+    d += diffs/refDiffs[iKey]
+  
+  return d
   
 def correspond(sites0, cell2Site0, u0, v0, dt, 
                sites1, cell2Site1, u1, v1, mesh,
@@ -231,6 +259,9 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   #0-noMatch, 1-minor, 2-major
   nSites0 = len(sites0); nSites1 = len(sites1);
   
+  metrics0, refDiffs = get_correspondMetrics(dataMetrics, iTime0)
+  metrics1, refDiffs = get_correspondMetrics(dataMetrics, iTime0+1)
+  
   #major time0->time1
   typeMatch01 = isMatch.copy().astype(int)
   for iSite0 in xrange(nSites0):
@@ -243,7 +274,10 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
       site1 = corrSites[0]
       typeMatch01[iSite0,sites1==site1] = 2
     else:
-      d = basinMetrics.calc_diff_metricSpace(dataMetrics, iTime0, site0, iTime0+1, corrSites, mesh.r/1.e3)
+      vals0 = metrics0[:,iSite0]
+      vals1 = metrics1[:,isMatch[iSite0,:]>0]
+      d = calc_basinSimilarity(vals0, vals1, refDiffs)
+      
       minInd = np.argmin(d)
       similarSite = corrSites[minInd]
       typeMatch01[iSite0,sites1==similarSite] = 2
@@ -260,7 +294,10 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
       site0 = corrSites[0]
       typeMatch10[sites0==site0,iSite1] = 2
     else:
-      d = basinMetrics.calc_diff_metricSpace(dataMetrics, iTime0+1, site1, iTime0, corrSites, mesh.r/1.e3)
+      vals0 = metrics1[:,iSite1]
+      vals1 = metrics0[:,isMatch[:,iSite1]>0]
+      d = calc_basinSimilarity(vals0, vals1, refDiffs)
+      
       minInd = np.argmin(d)
       similarSite = corrSites[minInd]
       typeMatch10[sites0==similarSite,iSite1] = 2

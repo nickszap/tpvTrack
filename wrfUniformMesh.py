@@ -55,7 +55,7 @@ class Mesh(object):
   def get_closestCell2Pt(self, latPt, lonPt):
     #distance from all points is a brute force solution.
     #there are some more sophisticated things like walking nearest nbrs from, say, the closest of 10 predefined sites.
-    d = calc_distSphere_multiple(1.0, latPt, lonPt, self.lat, self.lon)
+    d = helpers.calc_distSphere_multiple(1.0, latPt, lonPt, self.lat, self.lon)
     iCell = np.argmin(d)
     if (False):
       r2d = 180./np.pi

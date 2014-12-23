@@ -43,11 +43,11 @@ fTrack = fDirSave+'tracks_debug.txt'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'wrf_trop'
-doPreProc = True
+doPreProc = False
 doSeg = False
 doMetrics = False
-doCorr = False
-doTracks = False
+doCorr = True
+doTracks = True
 
 def silentremove(filename):
   #from http://stackoverflow.com/questions/10840533/most-pythonic-way-to-delete-a-file-which-may-not-exist

@@ -202,12 +202,18 @@ def check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, th
 def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   #It's slow to load 1 value at a time from file.
   #So, we can get (load,calculate?) values for all sites at a given time.
+  
+  #"extremum" metrics may not be too robust:
+  #-thetaExtr: value jumps if, say, TPV goes to surface
+  #-latExtr: seems okay, right?
+  #area of union-intersection of advected tpvs seems useful
   diffKeys = ['thetaExtr', 'latExtr']; nKeys = len(diffKeys)
   refDiffs = [1.0, 2.0]
   
   nSites = dataMetrics.variables['nSites'][iTime]
   allSites = dataMetrics.variables['sites'][iTime,:]; allSites = allSites[0:nSites]
-  isSiteReq = np.array([i in sitesOut for i in allSites], dtype=bool)
+  #isSiteReq = np.array([i in sitesOut for i in allSites], dtype=bool)
+  isSiteReq = np.in1d(allSites, sitesOut, assume_unique=True, invert=False)
   
   nSitesOut = len(sitesOut)
   valsOut = np.empty((nKeys,nSitesOut),dtype=float)

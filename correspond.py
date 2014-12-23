@@ -206,7 +206,9 @@ def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   #"extremum" metrics may not be too robust:
   #-thetaExtr: value jumps if, say, TPV goes to surface
   #-latExtr: seems okay, right?
-  #area of union-intersection of advected tpvs seems useful
+  
+  #area of non-overlap of advected tpvs would be useful if the "outer" filaments/chunks didn't break off and join willy-nilly
+  #(see http://docs.scipy.org/doc/numpy/reference/routines.set.html)
   diffKeys = ['thetaExtr', 'latExtr']; nKeys = len(diffKeys)
   refDiffs = [1.0, 2.0]
   

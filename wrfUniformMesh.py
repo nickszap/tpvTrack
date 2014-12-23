@@ -12,8 +12,46 @@ def calc_area(dx, dy, mapfac):
 
 #It would be convenient to use the map projection to find the closest cell to a point...
 #maybe someone else wants to figure out how to do that :) !!!
-def findOwner_horizNbrs_latLon():
-  pass
+def findOwner_horizNbrs_latLon(mesh, latPt, lonPt, cellId):
+  #given a guess cell, walk towards input latLon until no cell center is closer.
+  #Then, the input point is w/in voronoi region ("owner") of that cell.
+  #If domain is convex, can walk from one point to any other.
+  
+  radEarth = 1.0 #we don't need the "actual earth's" distance, just relative (closer and farther)
+  latNew, lonNew = mesh.get_latLon_inds(cellId)
+  dCell = helpers.calc_distSphere_multiple(radEarth, latPt, lonPt, latNew, lonNew)
+  
+  flag = 1;
+  while (flag==1):
+    #keep going towards the cell that's closer to point until no nbr is closer.
+    flag =0;
+    cell0 = Cell(mesh, cellId)
+    nbrs = cell0.get_nbrInds()
+    latNew, lonNew = mesh.get_latLon_inds(nbrs)
+    
+    dNbrs = helpers.calc_distSphere_multiple(radEarth, latPt, lonPt, latNew, lonNew)
+    iNbr = np.argmin(dNbrs)
+    if (dNbrs[iNbr]<dCell): #then use closest cell for next iteration
+      dCell = dNbrs[iNbr]
+      cellId = nbrs[iNbr]
+      flag=1
+  return cellId;
+
+def get_closestSeed2Pt(mesh, latPt, lonPt):
+    #return closest of predefined sites.
+    
+    nSeedsx = 6; nSeedsy = 7;
+    seedCandidates_x = np.linspace(0, mesh.nx, num = nSeedsx).astype(int)
+    seedCandidates_y = np.linspace(0, mesh.ny, num = nSeedsy).astype(int)
+    seedCandidates = helpers.index_2dTo1d(seed_candidates_y, seed_candidates_x, mesh.nx)
+    
+    d = helpers.calc_distSphere_multiple(1.0, latPt, lonPt, mesh.lat[seedCandidates], mesh.lon[seedCandidates])
+    ind = np.argmin(d)
+    iCell = seedCandidates[ind]
+    if (False):
+      r2d = 180./np.pi
+      print "Closest cell {0},{1} to coordinate {2},{3}".format(self.lat[iCell]*r2d, self.lon[iCell]*r2d, latPt*r2d, lonPt*r2d)
+    return iCell
 
 class Mesh(object):
   def __init__(self,lat,lon, dx, dy, r, rDisk):
@@ -52,11 +90,11 @@ class Mesh(object):
     
     return inDomain
   
-  def get_closestCell2Pt(self, latPt, lonPt):
+  def get_closestCell2Pt(self, latPt, lonPt, guessCell=0):
     #distance from all points is a brute force solution.
     #there are some more sophisticated things like walking nearest nbrs from, say, the closest of 10 predefined sites.
-    d = helpers.calc_distSphere_multiple(1.0, latPt, lonPt, self.lat, self.lon)
-    iCell = np.argmin(d)
+    
+    iCell = findOwner_horizNbrs_latLon(self, latPt, lonPt, guessCell)
     if (False):
       r2d = 180./np.pi
       print "Closest cell {0},{1} to coordinate {2},{3}".format(self.lat[iCell]*r2d, self.lon[iCell]*r2d, latPt*r2d, lonPt*r2d)

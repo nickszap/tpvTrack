@@ -73,7 +73,7 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
   #cells corresponding to those coordinates
   nPts = len(latPts);
   advCells = np.empty(nPts, dtype=int)
-  guessCell = siteInd #used for mpas meshes
+  guessCell = siteInd #used for mpas and wrf meshes
   inDomain = [] #used for LAM meshes
   if ('wrf' in mesh.info):
     inDomain = np.ones(nPts,dtype=int)
@@ -83,7 +83,8 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
       advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt], guessCell=guessCell)
       guessCell = advCells[iPt]
     elif ('wrf' in mesh.info):
-      advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
+      advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt], guessCell=guessCell)
+      guessCell = advCells[iPt]
       inDomain[iPt] = mesh.isPointInDomain(latPts[iPt], lonPts[iPt], advCells[iPt])
     else:
       advCells[iPt] = mesh.get_closestCell2Pt(latPts[iPt], lonPts[iPt])
@@ -198,20 +199,24 @@ def check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, th
   
   return isMatch
 
-def get_correspondMetrics(dataMetrics, iTime):
+def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   #It's slow to load 1 value at a time from file.
   #So, we can get (load,calculate?) values for all sites at a given time.
   diffKeys = ['thetaExtr', 'latExtr']; nKeys = len(diffKeys)
   refDiffs = [1.0, 2.0]
   
   nSites = dataMetrics.variables['nSites'][iTime]
-  valsOut = np.empty((nKeys,nSites),dtype=float)
+  allSites = dataMetrics.variables['sites'][iTime,:]; allSites = allSites[0:nSites]
+  isSiteReq = np.array([i in sitesOut for i in allSites], dtype=bool)
+  
+  nSitesOut = len(sitesOut)
+  valsOut = np.empty((nKeys,nSitesOut),dtype=float)
   for iKey in xrange(nKeys):
     key = diffKeys[iKey]
     vals = dataMetrics.variables[key][iTime,:]
     vals = vals[0:nSites]
     
-    valsOut[iKey,:] = vals[:]
+    valsOut[iKey,:] = vals[isSiteReq]
     
   return (valsOut, refDiffs)
   
@@ -259,8 +264,8 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   #0-noMatch, 1-minor, 2-major
   nSites0 = len(sites0); nSites1 = len(sites1);
   
-  metrics0, refDiffs = get_correspondMetrics(dataMetrics, iTime0)
-  metrics1, refDiffs = get_correspondMetrics(dataMetrics, iTime0+1)
+  metrics0, refDiffs = get_correspondMetrics(dataMetrics, sites0, iTime0); #print metrics0
+  metrics1, refDiffs = get_correspondMetrics(dataMetrics, sites1, iTime0+1); #print metrics1
   
   #major time0->time1
   typeMatch01 = isMatch.copy().astype(int)
@@ -276,7 +281,7 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
     else:
       vals0 = metrics0[:,iSite0]
       vals1 = metrics1[:,isMatch[iSite0,:]>0]
-      d = calc_basinSimilarity(vals0, vals1, refDiffs)
+      d = calc_basinSimilarity(vals0, vals1, refDiffs); #print d
       
       minInd = np.argmin(d)
       similarSite = corrSites[minInd]
@@ -296,7 +301,7 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
     else:
       vals0 = metrics1[:,iSite1]
       vals1 = metrics0[:,isMatch[:,iSite1]>0]
-      d = calc_basinSimilarity(vals0, vals1, refDiffs)
+      d = calc_basinSimilarity(vals0, vals1, refDiffs);
       
       minInd = np.argmin(d)
       similarSite = corrSites[minInd]
@@ -342,6 +347,7 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
       sites0 = sitesMax0
       sites1 = sitesMax1
     else: #track min+max
+      print "Do you really want minima to be able to correspond to maxima?"
       sites0 = np.concatenate((sitesMin0,sitesMax0))
       sites1 = np.concatenate((sitesMin1,sitesMax1))
       

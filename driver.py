@@ -10,6 +10,9 @@ import basinMetrics
 import correspond
 import tracks
 
+printTiming = True
+from datetime import datetime
+
 def demo():
   #setup -----------------
   info = my_settings.info
@@ -27,6 +30,9 @@ def demo():
   
   #pre-process ------------------------
   if (my_settings.doPreProc):
+    if (printTiming):
+      print "Current time: ", datetime.now()
+      
     if (my_settings.inputType=='eraI'):
       mesh, cell0 = preProcess.demo_eraI(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
     elif (my_settings.inputType=='mpas'):
@@ -36,6 +42,9 @@ def demo():
                                              my_settings.fileMap, info=info, pvIndex=3)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
+      
+    if (printTiming):
+      print "Current time: ", datetime.now()
   else:
     #if already processed input data
     if (my_settings.inputType=='eraI'):
@@ -51,18 +60,28 @@ def demo():
   dataMetr = netCDF4.Dataset(fMetr,'r'); 
   nTimes = len(dataMetr.dimensions['time']); #nTimes = 5
   if (my_settings.doSeg):
+    if (printTiming):
+      print "Current time: ", datetime.now()
+      
     segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes)
     if (False):
       segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
-  
+      
+    if (printTiming):
+      print "Current time: ", datetime.now()
   dataMetr.close()
   
   #spatial metrics ------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r')
   dataSeg = netCDF4.Dataset(fSeg,'r')
   if (my_settings.doMetrics):
+    if (printTiming):
+      print "Current time: ", datetime.now()
+      
     basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
-  
+    
+    if (printTiming):
+      print "Current time: ", datetime.now()
   dataMetr.close()
   dataSeg.close()
   
@@ -73,16 +92,24 @@ def demo():
   dataSeg = netCDF4.Dataset(fSeg,'r')
   dataMetrics = netCDF4.Dataset(fMetrics, 'r')
   if (my_settings.doCorr):
+    if (printTiming):
+      print "Current time: ", datetime.now()
+      
     correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
     if (False):
       correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
-  
+      
+    if (printTiming):
+      print "Current time: ", datetime.now()
   dataMetrics.close()
   dataSeg.close()
   dataMetr.close()
   
   #time tracks -------------------------
   if (my_settings.doTracks):
+    if (printTiming):
+      print "Current time: ", datetime.now()
+      
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
     
@@ -90,7 +117,9 @@ def demo():
     if (False):
       tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
       #tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
-  
+      
+    if (printTiming):
+      print "Current time: ", datetime.now()
   #time metrics ----------------------
 
 def demo_plotTracks():
@@ -179,9 +208,9 @@ def debug_helper():
   print mesh.isIndsInRegion(cells)
 
 if __name__=='__main__':
-  #demo()
+  demo()
   #debug_helper()
-  demo_algo_plots()
+  #demo_algo_plots()
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_compareMetrics('/data02/cases/test_segment/testUnified/200608/tracks_debug.txt')

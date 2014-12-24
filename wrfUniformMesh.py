@@ -1,4 +1,4 @@
-#This is for a LAM WRF mesh that has uniform physical dx and dy.
+#This is for a LAM WRF mesh that has uniform grid (projected) dx and dy.
 
 import numpy as np
 import helpers
@@ -10,7 +10,7 @@ def calc_area(dx, dy, mapfac):
   area = dx*dy/(mapfac*mapfac)
   return area
 
-#It would be convenient to use the map projection to find the closest cell to a point...
+#It may be faster to use the map projection to find the closest cell to a point...
 #maybe someone else wants to figure out how to do that :) !!!
 def findOwner_horizNbrs_latLon(mesh, latPt, lonPt, cellId):
   #given a guess cell, walk towards input latLon until no cell center is closer.

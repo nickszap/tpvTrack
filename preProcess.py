@@ -124,7 +124,7 @@ def calc_vertVorticity_ll(u, v, nLat, nLon, lat, r):
   
   return vort
    
-def calc_vorticity_wrfTrop_uniform(u, v, dx, dy):
+def calc_vorticity_wrfTrop_uniform(u, v, dx, dy, mapFac=1.0):
   #Steven's files have variables already processed to cell centers.
   #u,v come in ordered [south_north=y, west_east=x]
   #we'll use numpy.gradient for the finite difference,
@@ -132,6 +132,13 @@ def calc_vorticity_wrfTrop_uniform(u, v, dx, dy):
   
   du_dy, du_dx = np.gradient(u, dy, dx)
   dv_dy, dv_dx = np.gradient(v, dy, dx)
+  
+  #In physical space, dx and dy are not constants.
+  #If we act like we were finite differencing across the faces of each cell,
+  #grid stretching gets lumped into O(approx) and we just scale the d/dDirection
+  dv_dx *= mapFac # d/dxEarth = d/(dxGrid/mapFac)
+  du_dy *= mapFac
+  
   return dv_dx-du_dy
 
 def calc_potentialTemperature(tmp, press):
@@ -337,7 +344,7 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
         print "Time {0}, number of missing values: {1}".format(iTimeGlobal,0)
       
       #compute additional fields
-      vort = calc_vorticity_wrfTrop_uniform(u, v, dx, dy)
+      vort = calc_vorticity_wrfTrop_uniform(u, v, dx, dy, mapFac=mapFac)
       #rotate grid-relative wind to global (apparently the stored rotation is for earth->grid)
       uGlobal = u*cosalpha-v*sinalpha
       vGlobal = u*sinalpha+v*cosalpha

@@ -215,7 +215,7 @@ def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   nSites = dataMetrics.variables['nSites'][iTime]
   allSites = dataMetrics.variables['sites'][iTime,:]; allSites = allSites[0:nSites]
   #isSiteReq = np.array([i in sitesOut for i in allSites], dtype=bool)
-  isSiteReq = np.in1d(allSites, sitesOut, assume_unique=True, invert=False)
+  isSiteReq = np.in1d(allSites, sitesOut, assume_unique=True)
   
   nSitesOut = len(sitesOut)
   valsOut = np.empty((nKeys,nSitesOut),dtype=float)

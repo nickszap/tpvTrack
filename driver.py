@@ -28,6 +28,10 @@ def demo():
   dRegion = my_settings.dFilter
   latThresh = my_settings.latThresh
   
+  #datetime objects
+  timeStartGlobal = my_settings.timeStart
+  deltaTGlobal = my_settings.timeDelta
+  
   #pre-process ------------------------
   if (my_settings.doPreProc):
     if (printTiming):
@@ -117,7 +121,7 @@ def demo():
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
     
-    tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-1, fMetrics=fMetrics, trackOnlyMajor=True)
+    tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-1, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
     if (False):
       tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
       #tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)

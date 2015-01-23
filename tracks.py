@@ -99,7 +99,7 @@ def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='', trackOnlyM
     write_tracks_metrics_iTime(fNameTracks, iTimeStart, trackList, dataMetrics)
     dataMetrics.close()
 
-def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='', trackOnlyMajor=False):
+def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartGlobal, deltaTGlobal, fMetrics='', trackOnlyMajor=False):
   #find tracks for sites at [iTimeStart,iTimeEnd) out to iTimeEnd (at most).
   #besides stitching the correspondences together, the tricky part is that we don't want to start a track
   #for a basin at each timestep...only start a track at "genesis".
@@ -140,7 +140,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='
       write_tracks_cells(fNameTracks, trackList)
     else:
       dataMetrics = netCDF4.Dataset(fMetrics,'r')
-      write_tracks_metrics_iTime(fNameTracks, timeInd, trackList, dataMetrics)
+      write_tracks_metrics_iTime(fNameTracks, timeInd, trackList, dataMetrics, timeStartGlobal, deltaTGlobal)
       dataMetrics.close()
 
 def write_tracks_cells(fNameTracks, trackList):
@@ -161,15 +161,16 @@ def read_tracks_cells(fNameTracks):
     trackList.append(trackSeq)
   return trackList
 
-def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
+timeStringFormat = "%Y-%m-%d-%H"
+def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
   '''
   format is:
   (header) metric1 metric2 ...
-  timeStartTrack1 nTimesTrack1
+  iTimeStartTrack1 nTimesTrack1 timeStart timeEnd
   (time1) metric1 metric2 ... for track1
   (time2) metric1 metric2 ... for track1
   -1
-  timeStartTrack2 nTimesTrack2
+  iTimeStartTrack2 nTimesTrack2 timeStart timeEnd
   (time1) metric1 metric2 ... for track2
   (time2) metric1 metric2 ... for track2
   -1
@@ -189,7 +190,10 @@ def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics):
   for track in trackList:
     s = ''
     nTimes = len(track);
-    s += '{0} {1}\n'.format(iTime0, nTimes)
+    tStart = timeStartGlobal+deltaTGlobal*iTime0; tEnd = timeStartGlobal+deltaTGlobal*(iTime0+nTimes-1);
+    tStart = tStart.strftime(timeStringFormat)
+    tEnd = tEnd.strftime(timeStringFormat)
+    s += '{0} {1} {2} {3}\n'.format(iTime0, nTimes, tStart, tEnd)
     for iTime in xrange(nTimes):
       site = track[iTime]
       vals = basinMetrics.get_metrics_basin(dataMetrics, iTime+iTime0, site)
@@ -315,7 +319,7 @@ def plot_tracks_metrics(fTracks, fSave):
   #plt.colorbar()
   s = 'TPV {0}, [{1},{2}]'.format(varKey, varMin, varMax)
   plt.title(s)
-  if (True):
+  if (False):
     plt.show()
   else:
     print "Saving image of tracks from {0}: {1}".format(fTracks,fSave)

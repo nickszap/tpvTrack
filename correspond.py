@@ -170,34 +170,38 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
   
   return fracOverlap
 
-def check_overlap_PT(isMatch, sites0, sites1, cell2Site0, cell2Site1, theta0, theta1):
+def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1):
   #If the "air mass" persists, the PT range should overlap between corresponding TPVs.
-  #If not, do not correspond.
   
   #calculate bounds for each tpv that potentially matches another
   nSites0 = len(sites0); nSites1 = len(sites1)
-  min0 = np.empty(nSites0, dtype=float); max0 = np.empty(nSites0, dtype=float);
-  min1 = np.empty(nSites1, dtype=float); max1 = np.empty(nSites1, dtype=float);
-  sitesCheck0, sitesCheck1 = np.nonzero(isMatch)
-  for ind in np.unique(sitesCheck0):
+  fracOverlap = np.zeros((nSites0, nSites1), dtype=float)
+  
+  min0 = np.empty(nSites0, dtype=float); max0 = np.empty(nSites0, dtype=float); len0 = np.empty(nSites0, dtype=float);
+  min1 = np.empty(nSites1, dtype=float); max1 = np.empty(nSites1, dtype=float); len1 = np.empty(nSites1, dtype=float);
+  for ind in xrange(nSites0):
     site = sites0[ind]
     minVal, maxVal = basinMetrics.get_minMax_cell2Site(site, cell2Site0, theta0)
-    min0[ind] = minVal; max0[ind] = maxVal;
-  for ind in np.unique(sitesCheck1):
+    min0[ind] = minVal; max0[ind] = maxVal; len0[ind] = maxVal-minVal
+  for ind in xrange(nSites1):
     site = sites1[ind]
     minVal, maxVal = basinMetrics.get_minMax_cell2Site(site, cell2Site1, theta1)
-    min1[ind] = minVal; max1[ind] = maxVal;
-    
-  #check to see if those bounds overlap
-  for iCheck in xrange(len(sitesCheck0)):
-    ind0 = sitesCheck0[iCheck]; ind1 = sitesCheck1[iCheck];
-    #essentially the intersection of 2 ordered line segments
-    rangeTop = min(max0[ind0],max1[ind1])
-    rangeBottom = max(min0[ind0],min1[ind1])
-    if (rangeTop<rangeBottom): #no overlap
-      isMatch[ind0,ind1] = 0
+    min1[ind] = minVal; max1[ind] = maxVal; len1[ind] = maxVal-minVal
   
-  return isMatch
+  for iSite0 in xrange(nSites0):    
+    for iSite1 in xrange(nSites1):
+      #intersection of 2 ordered line segments
+      rangeTop = min(max0[iSite0],max1[iSite1]) #upper bound of overlap is smaller of the maxima
+      rangeBottom = max(min0[iSite0],min1[iSite1])
+      lenRange = rangeTop-rangeBottom
+      lenPossible = max(len0[iSite0], len1[iSite1])
+      frac = lenRange/lenPossible
+      if (lenRange<0): #no overlap
+        frac = 0.0
+        
+      fracOverlap[iSite0, iSite1] = frac
+  
+  return fracOverlap
 
 def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   #It's slow to load 1 value at a time from file.
@@ -322,7 +326,8 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
 
 def correspond_overlap(sites0, cell2Site0, u0, v0, dt, 
                sites1, cell2Site1, u1, v1, mesh,
-               trackMinMaxBoth, fracOverlapThresh):
+               trackMinMaxBoth, fracOverlapThresh,
+               theta0, theta1):
   
   #horizontal overlap under advection, and
   #overlap fraction defines similarity
@@ -332,6 +337,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
   fracOverlap = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh)
   isMatch = fracOverlap>fracOverlapThresh
   print "Number of matches after horizontal overlap: {0}".format(np.sum(isMatch))
+  fracOverlapPT = calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1)
   
   #decide type of site correspondence (major vs. minor) ------------------
   #0-noMatch, 1-minor, 2-major
@@ -349,7 +355,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       site1 = corrSites[0]
       typeMatch01[iSite0,sites1==site1] = 2
     else:
-      d = fracOverlap[iSite0, isMatch[iSite0,:]>0]
+      d = fracOverlap[iSite0, isMatch[iSite0,:]>0]+fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
       minInd = np.argmax(d); print d,'\n',d[minInd]
       
       similarSite = corrSites[minInd]
@@ -367,7 +373,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       site0 = corrSites[0]
       typeMatch10[sites0==site0,iSite1] = 2
     else:
-      d = fracOverlap[isMatch[:,iSite1]>0, iSite1]
+      d = fracOverlap[isMatch[:,iSite1]>0, iSite1]+fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
       minInd = np.argmax(d); print d,'\n',d[minInd]
       
       similarSite = corrSites[minInd]
@@ -418,7 +424,7 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
       sites1 = np.concatenate((sitesMin1,sitesMax1))
       
     #time correspondence ------------------
-    if (True):
+    if (False):
       typeMatch = correspond(sites0, cell2Site0, u0, v0, dt,
                            sites1, cell2Site1, u1, v1, mesh,
                            trackMinMaxBoth, fracOverlapThresh,
@@ -426,7 +432,7 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
     else:
       typeMatch = correspond_overlap(sites0, cell2Site0, u0, v0, dt,
                            sites1, cell2Site1, u1, v1, mesh,
-                           trackMinMaxBoth, fracOverlapThresh)
+                           trackMinMaxBoth, fracOverlapThresh, theta0, theta1)
                            
     write_corr_iTime(fCorr, iTime, sites0, sites1, typeMatch)
   
@@ -510,7 +516,11 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
           c='b'; lw=2
         m.drawgreatcircle(lon0, lat0, lon1[iSite1], lat1[iSite1], del_s=50.0, color=c, lw=lw)
         x1,y1 = m(lon1[iSite1], lat1[iSite1])
-        m.scatter(x1,y1, marker='o', color='r', s=20)
+        #maybe change fillstyle of one's non-major markers
+        fillStyle = 'none'
+        if (minorMajor[iSite1]>1):
+          fillStyle = 'full' 
+        m.scatter(x1,y1, marker='o', color='r', s=20, fillstyle=fillstyle)
     
     if (False):
       plt.show()

@@ -33,7 +33,7 @@ if (True): #a quick check of specified times
     import sys
     sys.exit()
 
-fDirSave = '/data01/tracks/summer06/test/'
+fDirSave = '/data01/tracks/summer06/testOverlap/'
 #fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)

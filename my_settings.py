@@ -25,7 +25,7 @@ timeStart = dt.datetime(2006,6,1,0) #time=timeStart+iTime*deltaT
 timeDelta = dt.timedelta(seconds=deltaT)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
-iTimeEnd_fData = [6]
+iTimeEnd_fData = [-1]
 if (True): #a quick check of specified times
   nFiles = len(filesData)
   if (len(iTimeStart_fData) != nFiles or len(iTimeEnd_fData) != nFiles):

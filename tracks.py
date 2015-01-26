@@ -218,14 +218,16 @@ def read_tracks_metrics(fNameTracks, metricNames):
   l = f.readline(); l = l.strip().split()
   metricInds = [l.index(i) for i in metricNames]
   trackList = []
+  timeStartList = []
   while (True):
     l = f.readline(); l = l.strip().split()
     if (len(l)<1): #end of file
       break
     #number of times
-    vals = [int(i) for i in l]
+    vals = [int(i) for i in l[0:2]]
     iTimeStart = vals[0]; nTimes = vals[1]
-     
+    timeStartList.append(l[2])
+    
     #values at each time
     trackVals = np.empty((nTimes,len(metricInds)),dtype=float)
     for iTime in xrange(nTimes):
@@ -242,7 +244,7 @@ def read_tracks_metrics(fNameTracks, metricNames):
     trackList.append(trackVals)
     
   f.close()
-  return trackList
+  return trackList, timeStartList
   
 def plot_tracks_cells(fTracks, mesh, fDirSave):
   f = open(fTracks,'r')
@@ -288,7 +290,7 @@ def plot_tracks_metrics(fTracks, fSave):
   varKey = 'thetaExtr'
   varInd = metricNames.index(varKey); varMin = 280.; varMax = 325.
 
-  trackList = read_tracks_metrics(fTracks, metricNames)
+  trackList, timeList = read_tracks_metrics(fTracks, metricNames)
   
   m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
   
@@ -296,16 +298,16 @@ def plot_tracks_metrics(fTracks, fSave):
   ax = plt.gca()
   m.drawcoastlines()
   
-  for track in trackList:
+  for iTrack,track in enumerate(trackList):
     nTimes = track.shape[0]
     if (True):
-      if (nTimes<4):
+      if (nTimes<60):
         continue
     
     lat = track[:,latInd]
     lon = track[:,lonInd]
     x,y = m(lon,lat)
-    #print lat; print lon
+    print timeList[iTrack], nTimes; print lat; print lon
     
     #mark beginning and ending of track
     m.scatter(x[0],y[0], marker='+', color='g', s=45)

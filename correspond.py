@@ -209,8 +209,8 @@ def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   
   #area of non-overlap of advected tpvs would be useful if the "outer" filaments/chunks didn't break off and join willy-nilly
   #(see http://docs.scipy.org/doc/numpy/reference/routines.set.html)
-  diffKeys = ['thetaExtr', 'latExtr']; nKeys = len(diffKeys)
-  refDiffs = [1.0, 2.0]
+  diffKeys = ['thetaExtr', 'latExtr', 'rEquiv', 'vortMean']; nKeys = len(diffKeys)
+  refDiffs = [1.0, 1.0, 100.e3, 2.e-5]
   
   nSites = dataMetrics.variables['nSites'][iTime]
   allSites = dataMetrics.variables['sites'][iTime,:]; allSites = allSites[0:nSites]
@@ -320,6 +320,64 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
   print "Number of -major- correspondences: {0}".format(np.sum(typeMatch==2))
   return typeMatch
 
+def correspond_overlap(sites0, cell2Site0, u0, v0, dt, 
+               sites1, cell2Site1, u1, v1, mesh,
+               trackMinMaxBoth, fracOverlapThresh):
+  
+  #horizontal overlap under advection, and
+  #overlap fraction defines similarity
+  
+  #decide whether sites correspond --------------------------
+  #area overlap
+  fracOverlap = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh)
+  isMatch = fracOverlap>fracOverlapThresh
+  print "Number of matches after horizontal overlap: {0}".format(np.sum(isMatch))
+  
+  #decide type of site correspondence (major vs. minor) ------------------
+  #0-noMatch, 1-minor, 2-major
+  nSites0 = len(sites0); nSites1 = len(sites1);
+  
+  #major time0->time1
+  typeMatch01 = isMatch.copy().astype(int)
+  for iSite0 in xrange(nSites0):
+    site0 = sites0[iSite0]
+    corrSites = sites1[isMatch[iSite0,:]>0]
+    
+    if (len(corrSites)<1):
+      continue
+    if (len(corrSites)==1):
+      site1 = corrSites[0]
+      typeMatch01[iSite0,sites1==site1] = 2
+    else:
+      d = fracOverlap[iSite0, isMatch[iSite0,:]>0]
+      minInd = np.argmax(d); print d,'\n',d[minInd]
+      
+      similarSite = corrSites[minInd]
+      typeMatch01[iSite0,sites1==similarSite] = 2
+  
+  #major time1<-time0 
+  typeMatch10 = isMatch.copy().astype(int)
+  for iSite1 in xrange(nSites1):
+    site1 = sites1[iSite1]
+    corrSites = sites0[isMatch[:,iSite1]>0]
+    
+    if (len(corrSites)<1):
+      continue
+    if (len(corrSites)==1):
+      site0 = corrSites[0]
+      typeMatch10[sites0==site0,iSite1] = 2
+    else:
+      d = fracOverlap[isMatch[:,iSite1]>0, iSite1]
+      minInd = np.argmax(d); print d,'\n',d[minInd]
+      
+      similarSite = corrSites[minInd]
+      typeMatch10[sites0==similarSite,iSite1] = 2
+  
+  typeMatch = np.minimum(typeMatch01, typeMatch10) #e.g., site0.a-site1 not major if site0.a splits from site0 into site1 but site0.b more similar to site1
+  print "Number of {0}s in 0->1 and 1<-0: {1}, {2}".format(2, np.sum(typeMatch01==2), np.sum(typeMatch10==2))
+  print "Number of -major- correspondences: {0}".format(np.sum(typeMatch==2))
+  return typeMatch
+
 def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt, 
                    trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd, dataMetrics):
   
@@ -360,11 +418,16 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
       sites1 = np.concatenate((sitesMin1,sitesMax1))
       
     #time correspondence ------------------
-    typeMatch = correspond(sites0, cell2Site0, u0, v0, dt,
-                         sites1, cell2Site1, u1, v1, mesh,
-                         trackMinMaxBoth, fracOverlapThresh,
-                         iTime, dataMetrics, theta0, theta1)
-                         
+    if (True):
+      typeMatch = correspond(sites0, cell2Site0, u0, v0, dt,
+                           sites1, cell2Site1, u1, v1, mesh,
+                           trackMinMaxBoth, fracOverlapThresh,
+                           iTime, dataMetrics, theta0, theta1)
+    else:
+      typeMatch = correspond_overlap(sites0, cell2Site0, u0, v0, dt,
+                           sites1, cell2Site1, u1, v1, mesh,
+                           trackMinMaxBoth, fracOverlapThresh)
+                           
     write_corr_iTime(fCorr, iTime, sites0, sites1, typeMatch)
   
   fCorr.close()

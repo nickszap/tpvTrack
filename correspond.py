@@ -1,6 +1,7 @@
 import numpy as np
 import netCDF4
 from mpl_toolkits.basemap import Basemap
+import matplotlib
 import matplotlib.pyplot as plt
 import cPickle as pickle; pickleProtocol = 2
 
@@ -195,10 +196,11 @@ def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1):
       rangeBottom = max(min0[iSite0],min1[iSite1])
       lenRange = rangeTop-rangeBottom
       lenPossible = max(len0[iSite0], len1[iSite1])
-      frac = lenRange/lenPossible
-      if (lenRange<0): #no overlap
-        frac = 0.0
-        
+      #treat boundary case issues of no overlap
+      frac = 0.0
+      if (lenRange>0 and lenPossible>0):
+        frac = lenRange/lenPossible
+      
       fracOverlap[iSite0, iSite1] = frac
   
   return fracOverlap
@@ -356,7 +358,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       typeMatch01[iSite0,sites1==site1] = 2
     else:
       d = fracOverlap[iSite0, isMatch[iSite0,:]>0]+fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
-      minInd = np.argmax(d); print d,'\n',d[minInd]
+      minInd = np.argmax(d); #print d,'\n',d[minInd]
       
       similarSite = corrSites[minInd]
       typeMatch01[iSite0,sites1==similarSite] = 2
@@ -374,7 +376,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       typeMatch10[sites0==site0,iSite1] = 2
     else:
       d = fracOverlap[isMatch[:,iSite1]>0, iSite1]+fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
-      minInd = np.argmax(d); print d,'\n',d[minInd]
+      minInd = np.argmax(d); #print d,'\n',d[minInd]
       
       similarSite = corrSites[minInd]
       typeMatch10[sites0==similarSite,iSite1] = 2
@@ -517,10 +519,10 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
         m.drawgreatcircle(lon0, lat0, lon1[iSite1], lat1[iSite1], del_s=50.0, color=c, lw=lw)
         x1,y1 = m(lon1[iSite1], lat1[iSite1])
         #maybe change fillstyle of one's non-major markers
-        fillStyle = 'none'
+        markerStyle = 'x'
         if (minorMajor[iSite1]>1):
-          fillStyle = 'full' 
-        m.scatter(x1,y1, marker='o', color='r', s=20, fillstyle=fillstyle)
+          markerStyle = 'o'
+        m.scatter(x1,y1, marker=markerStyle, color='r', s=20)
     
     if (False):
       plt.show()

@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 from mpl_toolkits.basemap import Basemap
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
+import datetime as dt
 
 import basinMetrics
 import correspond
@@ -133,7 +134,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
       for i in xrange(len(trackSeq)):
         #basin in trackSeq[i] is at index i [iTimeStart,iTimeEnd]
         sitesInTrack[iTime+i].append(trackSeq[i])
-    #print sitesInTrack    
+    #print sitesInTrack
         
     #write to file
     if (fMetrics==''):
@@ -162,6 +163,63 @@ def read_tracks_cells(fNameTracks):
   return trackList
 
 timeStringFormat = "%Y-%m-%d-%H"
+def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
+  '''
+  For inputs,
+  nTimesInTrackMax: maximum length of track
+  nTimes: number of times in tracking interval
+  nTimesInTrackMax <= nTimes
+  
+  Maybe dumping out the tracks to text file as:
+  iTimeStartTrack1 nTimesTrack1 timeStart timeEnd
+  (time1) metric1 metric2 ... for track1
+  (time2) metric1 metric2 ... for track1
+  -1
+  ends up taking alot of time since we read many small chunks from basinMetrics.
+  
+  Writing tracks out as metric1[iTime,iTrack] will let us load basinMetrics[iTime], but we'll
+  see how costly it is to write to scattered locations within the file. There are probably intermediate buffers and such.
+  
+  "ragged" or "vlen" arrays still don't make sense to me, so we'll use extra padding instead.
+  '''
+  data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
+  data.description = info
+  
+  # dimensions
+  data.createDimension('nTracks', None)
+  data.createDimension('nTimesTrack', nTimesInTrackMax)
+  data.createDimension('nTimes', nTimesInTrackMax)
+  
+  tNow = dt.datetime.now().strftime(timeStringFormat)
+  lenTime = tNow
+  data.createDimension('lenTimeString', lenTime)
+  
+  # variables
+  data.createVariable('timeStamp', str, ('nTimes',))
+  data.createVariable('iTimeStart', 'i4', ('nTracks',))
+  data.createVariable('lenTrack', 'i4', ('nTracks',))
+  
+  for key in basinMetrics.metricKeys:
+    data.createVariable(key, 'f8', ('nTracks','nTimesTrack',))
+  return data
+
+def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
+  
+  tStart = timeStartGlobal+deltaTGlobal*iTime0; tStart = tStart.strftime(timeStringFormat)
+  data.variables['timeStamp'][iTime0] = tStart
+  
+  nTracks = len(trackList)
+  trackLengths = np.array([len(track) for track in trackList], dtype=int)
+  maxLength = np.max(trackLengths)
+  
+  for key in basinMetrics.metricKeys:
+    vals = dataMetrics.variables[key][iTime,:]
+    sites = dataMetrics.variables['sites'][iTime,:]
+    iSite = np.where(sites==site)[0][0]
+  
+  iTrackGlobal = iTrackGlobal+nTracks
+  return iTrackGlobal
+  
 def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
   '''
   format is:

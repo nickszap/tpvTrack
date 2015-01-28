@@ -162,25 +162,27 @@ def demo_algo_plots():
     print "Unrecognized input type in my_settings: ",my_settings.inputType
   
   #segment --------------------------
-  dataMetr = netCDF4.Dataset(fMetr,'r');
-  segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
-  
-  dataMetr.close()
+  if (False):
+    dataMetr = netCDF4.Dataset(fMetr,'r');
+    segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+    
+    dataMetr.close()
   
   #time correspondence -----------------
-  dataMetr = netCDF4.Dataset(fMetr,'r')
-  dataSeg = netCDF4.Dataset(fSeg,'r')
-  dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-  
-  nTimes = len(dataSeg.dimensions['time'])
-  correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
-  
-  dataMetrics.close()
-  dataSeg.close()
-  dataMetr.close()
+  if (True):
+    dataMetr = netCDF4.Dataset(fMetr,'r')
+    dataSeg = netCDF4.Dataset(fSeg,'r')
+    dataMetrics = netCDF4.Dataset(fMetrics, 'r')
+    
+    nTimes = len(dataSeg.dimensions['time'])
+    correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
+    
+    dataMetrics.close()
+    dataSeg.close()
+    dataMetr.close()
   
   #time tracks -------------------------
-  if (my_settings.doTracks):
+  if (True):
     tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
   
   #time metrics ----------------------
@@ -217,9 +219,9 @@ def debug_helper():
   print mesh.isIndsInRegion(cells)
 
 if __name__=='__main__':
-  demo()
+  #demo()
   #debug_helper()
-  #demo_algo_plots()
+  demo_algo_plots()
   #tracks.plot_tracks_metrics(my_settings.fTrack, my_settings.fDirSave+'test_tracks.png')
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')

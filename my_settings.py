@@ -46,9 +46,9 @@ fTrack = fDirSave+'tracks_debug.txt'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'eraI'
-doPreProc = True
-doSeg = True
-doMetrics = True
+doPreProc = False
+doSeg = False
+doMetrics = False
 doCorr = True
 doTracks = True
 

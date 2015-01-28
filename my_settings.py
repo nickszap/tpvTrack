@@ -42,14 +42,14 @@ fMesh = filesData[0]
 fMetr = fDirSave+'fields_debug.nc'
 fSeg = fDirSave+'seg_debug.nc'
 fCorr = fDirSave+'correspond_debug.pkl'
-fTrack = fDirSave+'tracks_debug.txt'
+fTrack = fDirSave+'tracks_debug.nc'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'eraI'
 doPreProc = False
 doSeg = False
 doMetrics = False
-doCorr = True
+doCorr = False
 doTracks = True
 
 def silentremove(filename):

@@ -554,6 +554,27 @@ def read_corr_iTime(fName, iTimeIn):
   
   return (sites0, corrSites, corrTypes)
 
+def read_corr_iTime_openFile(f, iTimeIn):
+  #remember to open f as: f = open(fName, 'rb')
+  #this will only work for an iTimeIn after what's been loaded
+  
+  obj = []
+  nTries = 0
+  while (True):
+    obj = pickle.load(f)
+    iTime = obj['iTime']
+    if (iTime == iTimeIn):
+      break
+    
+    nTries = nTries+1
+    if (nTries>iTimeIn+1):
+      print "\nUhoh. Probably error in reading correspondence information from open file\n"
+  
+  sites0 = obj['sites0']
+  corrSites = obj['corrSites']
+  corrTypes = obj['corrTypes']
+  return (f, sites0, corrSites, corrTypes)
+  
 def get_correspondingSites(fName, iTime, site):
   allSites0, corrSites, typeCorr = read_corr_iTime(fName, iTime)
   if (site not in allSites0):

@@ -61,7 +61,7 @@ def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0, trackOnlyMajor):
     #print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
     siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor)
     for t in siteTracks:
-      if (len(t)>0):
+      if (len(t)>1): #drop the noise/artifacts
         trackList.append(t)
     
   return trackList
@@ -111,9 +111,13 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
   nTimes = iTimeEnd-iTimeStart
   sitesInTrack = [[] for i in xrange(nTimes+1)] #need +1 since storing iTimeStart basins as well
   
+  dataTracks = write_tracks_metrics_netcdf_header(fNameTracks, 'test', nTimes, nTimes); iTrackGlobal=0
+  fHandleCorr = open(fCorr, 'rb')
+  
   for iTime in xrange(nTimes):
     timeInd = iTime+iTimeStart
-    sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, timeInd)
+    #sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, timeInd)
+    fHandleCorr, sites0, corrSites, typeCorr = correspond.read_corr_iTime_openFile(fHandleCorr, timeInd)
     
     #ignore sites already trajectoried in an existing track
     nSites0 = len(sites0)
@@ -124,7 +128,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
       if (site0 in sitesInTrack[iTime]):
         notInPrev[iSite] = 0
 
-    print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) 
+    #print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) #this doesn't account for trackOnlyMajor
     sites0 = sites0[notInPrev>0]
   
     trackList = form_tracks_iTime(fCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor)
@@ -141,9 +145,15 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
       write_tracks_cells(fNameTracks, trackList)
     else:
       dataMetrics = netCDF4.Dataset(fMetrics,'r')
-      write_tracks_metrics_iTime(fNameTracks, timeInd, trackList, dataMetrics, timeStartGlobal, deltaTGlobal)
+      
+      #write_tracks_metrics_iTime(fNameTracks, timeInd, trackList, dataMetrics, timeStartGlobal, deltaTGlobal)
+      iTrackGlobal = write_tracks_metrics_iTime_netcdf(dataTracks, timeInd, iTrackGlobal, trackList, dataMetrics, timeStartGlobal, deltaTGlobal)
+      
       dataMetrics.close()
-
+  
+  fHandleCorr.close()
+  dataTracks.close()    
+  
 def write_tracks_cells(fNameTracks, trackList):
   print "Appending to file: "+fNameTracks
   f = open(fNameTracks,'a')
@@ -187,23 +197,24 @@ def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
   
   # dimensions
   data.createDimension('nTracks', None)
-  data.createDimension('nTimesTrack', nTimesInTrackMax)
-  data.createDimension('nTimes', nTimesInTrackMax)
+  data.createDimension('nTimesTrack', nTimesInTrackMax+1)
+  data.createDimension('nTimes', nTimes)
   
   tNow = dt.datetime.now().strftime(timeStringFormat)
-  lenTime = tNow
+  lenTime = len(tNow)
   data.createDimension('lenTimeString', lenTime)
   
   # variables
   data.createVariable('timeStamp', str, ('nTimes',))
   data.createVariable('iTimeStart', 'i4', ('nTracks',))
   data.createVariable('lenTrack', 'i4', ('nTracks',))
+  data.createVariable('siteExtr', 'i4', ('nTracks','nTimesTrack',))
   
   for key in basinMetrics.metricKeys:
     data.createVariable(key, 'f8', ('nTracks','nTimesTrack',))
   return data
 
-def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
+def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal0, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
   
   tStart = timeStartGlobal+deltaTGlobal*iTime0; tStart = tStart.strftime(timeStringFormat)
   data.variables['timeStamp'][iTime0] = tStart
@@ -211,13 +222,30 @@ def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal, trackList, dat
   nTracks = len(trackList)
   trackLengths = np.array([len(track) for track in trackList], dtype=int)
   maxLength = np.max(trackLengths)
+  print "Maximum track length={0} at time {1}".format(maxLength, tStart)
   
-  for key in basinMetrics.metricKeys:
-    vals = dataMetrics.variables[key][iTime,:]
-    sites = dataMetrics.variables['sites'][iTime,:]
-    iSite = np.where(sites==site)[0][0]
+  data.variables['lenTrack'][iTrackGlobal0:iTrackGlobal0+nTracks] = trackLengths[:]
+  data.variables['iTimeStart'][iTrackGlobal0:iTrackGlobal0+nTracks] = iTime0
   
-  iTrackGlobal = iTrackGlobal+nTracks
+  for iTime in xrange(maxLength):
+    iTimeGlobal = iTime0+iTime
+    sites = dataMetrics.variables['sites'][iTimeGlobal,:]
+    
+    for key in basinMetrics.metricKeys:
+      vals = dataMetrics.variables[key][iTimeGlobal,:]
+    
+      for iTrack in xrange(nTracks):
+        if (trackLengths[iTrack]-1<iTime): #can only index an array of length 4 with [3]
+          continue
+        iTrackGlobal = iTrackGlobal0+iTrack
+        #print iTrackGlobal, iTime, trackList[iTrack]
+        site = trackList[iTrack][iTime]
+        iSite = np.where(sites==site)[0][0]
+        
+        data.variables['siteExtr'][iTrackGlobal,iTime] = site
+        data.variables[key][iTrackGlobal, iTime] = vals[iSite]
+  
+  iTrackGlobal = iTrackGlobal0+nTracks
   return iTrackGlobal
   
 def write_tracks_metrics_iTime(fSave, iTime0, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
@@ -359,7 +387,7 @@ def plot_tracks_metrics(fTracks, fSave):
   for iTrack,track in enumerate(trackList):
     nTimes = track.shape[0]
     if (True):
-      if (nTimes<60):
+      if (nTimes<56):
         continue
     
     lat = track[:,latInd]

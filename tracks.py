@@ -15,7 +15,7 @@ import correspond
 
 r2d = 180./np.pi
 
-def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
+def form_track_site(dataCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
   # follow a given site throughout the correspondences "tree" and split tree into individual tracks
   
   tracks_checkContinue = [[site0]]
@@ -30,7 +30,7 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
       trackList.append(basinTrack)
       continue
     
-    corrSites, corrTypes = correspond.get_correspondingSites(fNameCorr, iTime, site0)
+    corrSites, corrTypes = correspond.get_correspondingSites(dataCorr, iTime, site0)
     if (len(corrSites)<1): #don't connect to future site
       trackList.append(basinTrack)
       continue
@@ -55,51 +55,17 @@ def form_track_site(fNameCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
     
   return trackList
   
-def form_tracks_iTime(fNameCorr, iTimeStart, iTimeEnd, sites0, trackOnlyMajor):
+def form_tracks_iTime(dataCorr, iTimeStart, iTimeEnd, sites0, trackOnlyMajor):
   trackList = []
   for site in sites0:
     #print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
-    siteTracks = form_track_site(fNameCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor)
+    siteTracks = form_track_site(dataCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor)
     for t in siteTracks:
       if (len(t)>1): #drop the noise/artifacts
         trackList.append(t)
     
   return trackList
   
-def run_tracks(fNameTracks, fCorr, iTimeStart, iTimeEnd, fMetrics='', trackOnlyMajor=False):
-  #find tracks for sites at iTimeStart going to at most iTimeEnd
-  
-  iTime = iTimeStart
-  sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime)
-  nSites0 = len(sites0)
-  
-  #sub-select possible tracks: --------------------
-  #-major tracks
-  #-tracks that start at this time
-  #-tracks that started before this time
-  
-  notInPrev = np.ones(nSites0,dtype=int)
-  
-  if (iTime>0):
-    sites0Prev, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, iTime-1)
-    for iSite in xrange(nSites0):
-      for basins in corrSites:
-        if sites0[iSite] in basins:
-          notInPrev[iSite] = 0
-          break
-    #
-  print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, iTime) 
-  sites0 = sites0[notInPrev>0]
-  
-  trackList = form_tracks_iTime(fCorr, iTimeStart, iTimeEnd, sites0,trackOnlyMajor)
-  
-  if (fMetrics==''):
-    write_tracks_cells(fNameTracks, trackList)
-  else:
-    dataMetrics = netCDF4.Dataset(fMetrics,'r')
-    write_tracks_metrics_iTime(fNameTracks, iTimeStart, trackList, dataMetrics)
-    dataMetrics.close()
-
 def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartGlobal, deltaTGlobal, fMetrics='', trackOnlyMajor=False):
   #find tracks for sites at [iTimeStart,iTimeEnd) out to iTimeEnd (at most).
   #besides stitching the correspondences together, the tricky part is that we don't want to start a track
@@ -112,12 +78,11 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
   sitesInTrack = [[] for i in xrange(nTimes+1)] #need +1 since storing iTimeStart basins as well
   
   dataTracks = write_tracks_metrics_netcdf_header(fNameTracks, 'test', nTimes, nTimes); iTrackGlobal=0
-  fHandleCorr = open(fCorr, 'rb')
+  dataCorr = netCDF4.Dataset(fCorr, 'r')
   
   for iTime in xrange(nTimes):
     timeInd = iTime+iTimeStart
-    #sites0, corrSites, typeCorr = correspond.read_corr_iTime(fCorr, timeInd)
-    fHandleCorr, sites0, corrSites, typeCorr = correspond.read_corr_iTime_openFile(fHandleCorr, timeInd); print "Read correspondence for iTimeGlobal: ", timeInd
+    sites0, corrSites, typeCorr = correspond.read_corr_iTime(dataCorr, timeInd)
     
     #ignore sites already trajectoried in an existing track
     nSites0 = len(sites0)
@@ -131,7 +96,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
     #print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) #this doesn't account for trackOnlyMajor
     sites0 = sites0[notInPrev>0]
   
-    trackList = form_tracks_iTime(fCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for for iTimeGlobal: ", timeInd
+    trackList = form_tracks_iTime(dataCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for for iTimeGlobal: ", timeInd
     
     #update sitesInTrack
     for trackSeq in trackList:
@@ -151,7 +116,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
       
       dataMetrics.close()
   
-  fHandleCorr.close()
+  dataCorr.close()
   dataTracks.close()    
   
 def write_tracks_cells(fNameTracks, trackList):

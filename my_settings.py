@@ -33,7 +33,7 @@ if (True): #a quick check of specified times
     import sys
     sys.exit()
 
-fDirSave = '/data01/tracks/summer06/testOverlap/'
+fDirSave = '/data01/tracks/summer06/testOverlap/ncCorr/'
 #fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
@@ -41,7 +41,7 @@ if not os.path.exists(fDirSave):
 fMesh = filesData[0]  
 fMetr = fDirSave+'fields_debug.nc'
 fSeg = fDirSave+'seg_debug.nc'
-fCorr = fDirSave+'correspond_debug.pkl'
+fCorr = fDirSave+'correspond_debug.nc'
 fTrack = fDirSave+'tracks_debug.nc'
 fMetrics = fDirSave+'metrics_debug.nc'
 

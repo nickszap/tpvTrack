@@ -390,7 +390,9 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
                    trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd, dataMetrics):
   
   #file for correspondences
-  fCorr = open(fNameOut,'wb')
+  maxNSites = max(np.max(dataSeg.variables['nSitesMin'][:]), np.max(dataSeg.variables['nSitesMax'][:])); print "Maximum of {0} sites at any time".format(maxNSites)
+  nTimes = iTimeEnd+1
+  dataCorr = write_corr_netcdf_header(fNameOut, 'test', maxNSites, nTimes)
   
   for iTime in xrange(iTimeStart,iTimeEnd): #iTimeEnd will be the end of the correspondences
     #segmentation data
@@ -436,58 +438,56 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
                            sites1, cell2Site1, u1, v1, mesh,
                            trackMinMaxBoth, fracOverlapThresh, theta0, theta1)
                            
-    write_corr_iTime(fCorr, iTime, sites0, sites1, typeMatch)
+    write_corr_iTime_netcdf(dataCorr, iTime, sites0, sites1, typeMatch)
   
-  fCorr.close()
-  
-def write_corr_iTime(f, iTime, sites0, sites1, typeMatch):
+  dataCorr.close()
+
+def write_corr_netcdf_header(fName, info, maxNSites, nTimes):
   '''
-  format is:
-  Time0 object
-  Time1 object
-  ...
+  unpickling objects gets expensive for long track times since we have to go sequentially
+  load the relevant times.
   
-  where each Timei object is
+  netcdf allows more direct/quicker access
+  '''
+  data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
+  data.description = info
+  
+  # dimensions
+  data.createDimension('maxNSites', maxNSites)
+  data.createDimension('nTimes', nTimes)
+  
+  # variables
+  data.createVariable('nSites0', 'i4', ('nTimes',))
+  data.createVariable('sites0', 'i4', ('nTimes','maxNSites',))
+  data.createVariable('nCorrSites', 'i4', ('nTimes','maxNSites',))
+  data.createVariable('corrSites', 'i4', ('nTimes','maxNSites','maxNSites',))
+  data.createVariable('corrTypes', 'i4', ('nTimes','maxNSites','maxNSites',))
+  
+  return data
+
+def write_corr_iTime_netcdf(data, iTime, sites0, sites1, typeMatch):
+  '''
+  variables to store are:
   {iTime, sites0, correspondingSites1[iSite0][iCorrespondingSites1], correspondenceType[iSite0][iCorrespondingSites1]}
-  
-  according to http://stackoverflow.com/questions/12761991/how-to-use-append-with-pickle-in-python ,
-  pickle can work like:
-  >>> f=open('a.p', 'wb')
-  >>> pickle.dump({1:2}, f)
-  >>> pickle.dump({3:4}, f)
-  >>> f.close()
-  >>> 
-  >>> f=open('a.p', 'rb')
-  >>> pickle.load(f)
-  {1: 2}
-  >>> pickle.load(f)
-  {3: 4}
-  >>> pickle.load(f)
-  Traceback (most recent call last):
-    File "<stdin>", line 1, in <module>
-  EOFError
   '''
   
   nSites0 = len(sites0); nSites1 = len(sites1)
   
-  obj = {'iTime':iTime, 'sites0':sites0}
-  allCorrSites = []
-  allCorrTypes = []
+  data.variables['nSites0'][iTime] = nSites0
   
-  for iSite0 in xrange(nSites0):
+  for iSite0 in xrange(nSites0):    
     corr1 = typeMatch[iSite0,:]
     corrSites = sites1[corr1>0]; nCorr = len(corrSites)
     typeCorr = corr1[corr1>0]
     
-    allCorrSites.append(corrSites)
-    allCorrTypes.append(typeCorr)
-  
-  obj['corrSites'] = allCorrSites
-  obj['corrTypes'] = allCorrTypes
-  
-  pickle.dump(obj,f,protocol=pickleProtocol)
+    data.variables['sites0'][iTime,iSite0] = sites0[iSite0]
+    data.variables['nCorrSites'][iTime,iSite0] = nCorr
+    data.variables['corrSites'][iTime,iSite0,0:nCorr] = corrSites
+    data.variables['corrTypes'][iTime,iSite0,0:nCorr] = typeCorr
     
 def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
+  
+  dataCorr = netCDF4.Dataset(fCorr,'r')
   
   m = Basemap(projection='ortho',lon_0=0,lat_0=89.5, resolution='l')
   r2d = 180./np.pi
@@ -496,7 +496,7 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
     plt.figure()
     m.drawcoastlines()
     
-    allSites0, corrSites, typesCorr = read_corr_iTime(fCorr, iTime)
+    allSites0, corrSites, typesCorr = read_corr_iTime(dataCorr, iTime)
     nSites0 = len(allSites0)
     for iSite in xrange(nSites0):
       site0 = allSites0[iSite]
@@ -532,51 +532,26 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh):
       print "Saving file to: "+fSave
       plt.savefig(fSave); plt.close()
       
-def read_corr_iTime(fName, iTimeIn):
+def read_corr_iTime(data, iTime):
   #read/return correspondences for the specified time index
+  #later accessed as correspondingSites1[iSite0][iCorrespondingSites1], correspondenceType[iSite0][iCorrespondingSites1]
   
-  f = open(fName, 'rb')
+  nSites0 = data.variables['nSites0'][iTime]
+  sites0 = data.variables['sites0'][iTime,0:nSites0]
+  nCorr = data.variables['nCorrSites'][iTime,0:nSites0]
+  paddedCorrSites = data.variables['corrSites'][iTime,:,:]
+  paddedTypeCorr = data.variables['corrTypes'][iTime,:,:]
   
-  for iTime in xrange(iTimeIn): #will go [0,iTimeIn)
-    #get to serialized timestep in sequentially pickled objects
-    pickle.load(f)
-    
-  #now at the proper time (assuming time is in file)
-  obj = pickle.load(f)
-  f.close()
-  
-  iTime = obj['iTime']
-  if (iTime != iTimeIn):
-    print "Uhoh. Time mismatch in unpickling file ", iTime, iTimeIn
-  sites0 = obj['sites0']
-  corrSites = obj['corrSites']
-  corrTypes = obj['corrTypes']
+  corrSites = []
+  corrTypes = []
+  for iSite0 in xrange(nSites0):
+    corrSites.append(paddedCorrSites[iSite0, 0:nCorr[iSite0]])
+    corrTypes.append(paddedTypeCorr[iSite0, 0:nCorr[iSite0]])
   
   return (sites0, corrSites, corrTypes)
-
-def read_corr_iTime_openFile(f, iTimeIn):
-  #remember to open f as: f = open(fName, 'rb')
-  #this will only work for an iTimeIn after what's been loaded
   
-  obj = []
-  nTries = 0
-  while (True):
-    obj = pickle.load(f)
-    iTime = obj['iTime']
-    if (iTime == iTimeIn):
-      break
-    
-    nTries = nTries+1
-    if (nTries>iTimeIn+1):
-      print "\nUhoh. Probably error in reading correspondence information from open file\n"
-  
-  sites0 = obj['sites0']
-  corrSites = obj['corrSites']
-  corrTypes = obj['corrTypes']
-  return (f, sites0, corrSites, corrTypes)
-  
-def get_correspondingSites(fName, iTime, site):
-  allSites0, corrSites, typeCorr = read_corr_iTime(fName, iTime)
+def get_correspondingSites(dataCorr, iTime, site):
+  allSites0, corrSites, typeCorr = read_corr_iTime(dataCorr, iTime)
   if (site not in allSites0):
     print "Uhoh, site doesn't correspond to another..."
     print site, allSites0

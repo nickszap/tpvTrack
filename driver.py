@@ -103,7 +103,6 @@ def demo():
     if (printTiming):
       tStart = datetime.now()
     
-    maxNSites = max(np.max(dataSeg.variables['nSitesMin'][:]), np.max(dataSeg.variables['nSitesMax'][:])); print "Maximum of {0} sites at any time".format(maxNSites)
     correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
     if (False):
       correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
@@ -122,9 +121,9 @@ def demo():
       
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
-    iTimeStart = 31*4; iTimeEnd = 31*4+8; timeStartGlobal = dt.datetime(2006,7,1,0)
-    tracks.run_tracks_timeInterval(fTrack, fCorr, iTimeStart, iTimeEnd, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
-    #tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-1, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
+    #iTimeStart = 31*4; iTimeEnd = 31*4+8; timeStartGlobal = dt.datetime(2006,7,1,0)
+    #tracks.run_tracks_timeInterval(fTrack, fCorr, iTimeStart, iTimeEnd, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
+    tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-1, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
     if (False):
       tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
       #tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)

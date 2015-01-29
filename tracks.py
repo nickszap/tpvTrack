@@ -265,36 +265,25 @@ def read_tracks_metrics(fNameTracks, metricNames):
   #Input the name of the track file and list of metricNames strings.
   #return list of numpy arrays list[iTrack][iTime,iMetric] with the metric properties of the tracked TPVs.
   
-  f = open(fNameTracks, 'r')
-  l = f.readline(); l = l.strip().split()
-  metricInds = [l.index(i) for i in metricNames]
+  nMetrics = len(metricNames)
+  data = netCDF4.Dataset(fNameTracks,'r')
+  nTracks = len(data.dimensions['nTracks'])
+  
   trackList = []
   timeStartList = []
-  while (True):
-    l = f.readline(); l = l.strip().split()
-    if (len(l)<1): #end of file
-      break
-    #number of times
-    vals = [int(i) for i in l[0:2]]
-    iTimeStart = vals[0]; nTimes = vals[1]
-    timeStartList.append(l[2])
+  
+  for iTrack in xrange(nTracks):
+    nTimes = data.variables['lenTrack'][iTrack]
+    iTimeStart = data.variables['iTimeStart'][iTrack]
+    timeStartList.append(data.variables['timeStamp'][iTimeStart])
     
-    #values at each time
-    trackVals = np.empty((nTimes,len(metricInds)),dtype=float)
-    for iTime in xrange(nTimes):
-      l = f.readline(); l = l.strip().split()
-      vals = np.array(l)[metricInds].astype(float)
-      trackVals[iTime,:] = vals[:]
-      
-    #-1 to end track
-    l = f.readline(); l = l.strip().split()
-    if (l[0] != '-1'):
-      print "Uhoh. Something has gone quite wrong in reading track file.\n"
-      print "Expected '-1' but got ", l
-    
+    trackVals = np.empty((nTimes,nMetrics),dtype=float)
+    for iMetric in xrange(nMetrics):
+        key = metricNames[iMetric]
+        trackVals[:,iMetric] = data.variables[key][iTrack,0:nTimes]
     trackList.append(trackVals)
-    
-  f.close()
+        
+  data.close()
   return trackList, timeStartList
   
 def plot_tracks_cells(fTracks, mesh, fDirSave):

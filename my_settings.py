@@ -33,7 +33,7 @@ if (True): #a quick check of specified times
     import sys
     sys.exit()
 
-fDirSave = '/data01/tracks/summer06/testOverlap/ncCorr/'
+fDirSave = '/data01/tracks/summer06/jun1-sep30/'
 #fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
@@ -46,10 +46,10 @@ fTrack = fDirSave+'tracks_debug.nc'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'eraI'
-doPreProc = False
-doSeg = False
-doMetrics = False
-doCorr = False
+doPreProc = True
+doSeg = True
+doMetrics = True
+doCorr = True
 doTracks = True
 
 def silentremove(filename):

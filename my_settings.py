@@ -41,14 +41,14 @@ if not os.path.exists(fDirSave):
 fMesh = filesData[0]  
 fMetr = fDirSave+'fields_debug.nc'
 fSeg = fDirSave+'seg_debug.nc'
-fCorr = fDirSave+'correspond_debug.nc'
-fTrack = fDirSave+'tracks_debug.nc'
+fCorr = fDirSave+'correspond_test.nc'
+fTrack = fDirSave+'tracks_test.nc'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'eraI'
-doPreProc = True
-doSeg = True
-doMetrics = True
+doPreProc = False
+doSeg = False
+doMetrics = False
 doCorr = True
 doTracks = True
 

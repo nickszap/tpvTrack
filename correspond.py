@@ -183,7 +183,7 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
   else:
     return fracOverlap
 
-def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1):
+def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, siteIsMin):
   #If the "air mass" persists, the PT range should overlap between corresponding TPVs.
   
   #calculate bounds for each tpv that potentially matches another
@@ -208,7 +208,12 @@ def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1):
       rangeBottom = max(min0[iSite0],min1[iSite1])
       lenRange = rangeTop-rangeBottom
       #lenPossible = max(len0[iSite0], len1[iSite1])
-      lenPossible = rangeTop- min(min0[iSite0],min1[iSite1]) #especially considering foothills sensitivity, really care about whether extreme depth overlaps
+      lenPossible = 0.0
+      #especially considering foothills sensitivity, really care about whether extreme depth overlaps
+      if (siteIsMin):
+        lenPossible = rangeTop- min(min0[iSite0],min1[iSite1])
+      else:
+        lenPossible = max(max0[iSite0],max1[iSite1])-rangeBottom
       #treat boundary case issues of no overlap
       frac = 0.0
       if (lenRange>0 and lenPossible>0):
@@ -358,7 +363,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
   fracOverlap, fracOverlapMax = calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt, sites1, cell2Site1, u1, v1, mesh, doMaxArea=True)
   isMatch = fracOverlap>fracOverlapThresh
   print "Number of matches after horizontal overlap: {0}".format(np.sum(isMatch))
-  fracOverlapPT = calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1)
+  fracOverlapPT = calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, trackMinMaxBoth==0)
   
   #decide type of site correspondence (major vs. minor) ------------------
   #0-noMatch, 1-minor, 2-major
@@ -379,6 +384,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       #d = wtHoriz*fracOverlap[iSite0, isMatch[iSite0,:]>0]+wtVert*fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
       #tanh(2)~.96 so can construct profile s.t. areaOverlapThresh->1
       d = np.tanh(4*fracOverlapMax[iSite0, isMatch[iSite0,:]>0])*fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
+      #d = fracOverlapMax[iSite0, isMatch[iSite0,:]>0]*fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
       minInd = np.argmax(d); #print d,'\n',d[minInd]
       
       similarSite = corrSites[minInd]
@@ -398,6 +404,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
     else:
       #d = wtHoriz*fracOverlap[isMatch[:,iSite1]>0, iSite1]+wtVert*fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
       d = np.tanh(4*fracOverlapMax[isMatch[:,iSite1]>0, iSite1])*fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
+      #d = fracOverlapMax[isMatch[:,iSite1]>0, iSite1]*fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
       minInd = np.argmax(d); #print d,'\n',d[minInd]
       
       similarSite = corrSites[minInd]

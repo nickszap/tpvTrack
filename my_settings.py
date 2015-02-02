@@ -11,7 +11,7 @@ dFilter = 300.e3 #radius for whether local extremum is regional extremum
 areaOverlap = .1 #fraction of tpv area overlap for determining correspondence
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
-trackMinMaxBoth = 0 #0-min, 1-max, 2-both
+trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
 info = '30N_eraI'
 
 fDirData = '/data02/cases/summer2006/eraI/pv/'
@@ -41,8 +41,8 @@ if not os.path.exists(fDirSave):
 fMesh = filesData[0]  
 fMetr = fDirSave+'fields_debug.nc'
 fSeg = fDirSave+'seg_debug.nc'
-fCorr = fDirSave+'correspond_test.nc'
-fTrack = fDirSave+'tracks_test.nc'
+fCorr = fDirSave+'correspond_test_horizByVert.nc'
+fTrack = fDirSave+'tracks_test_horizByVert.nc'
 fMetrics = fDirSave+'metrics_debug.nc'
 
 inputType = 'eraI'

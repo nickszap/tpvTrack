@@ -96,7 +96,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
     #print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) #this doesn't account for trackOnlyMajor
     sites0 = sites0[notInPrev>0]
   
-    trackList = form_tracks_iTime(dataCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for for iTimeGlobal: ", timeInd
+    trackList = form_tracks_iTime(dataCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for iTimeGlobal: ", timeInd
     
     #update sitesInTrack
     for trackSeq in trackList:
@@ -328,7 +328,7 @@ def plot_tracks_metrics(fTracks, fSave):
   latInd = metricNames.index('latExtr')
   lonInd = metricNames.index('lonExtr')
   varKey = 'thetaExtr'
-  varInd = metricNames.index(varKey); varMin = 280.; varMax = 325.
+  varInd = metricNames.index(varKey); varMin = 270.; varMax = 310.
 
   trackList, timeList = read_tracks_metrics(fTracks, metricNames)
   

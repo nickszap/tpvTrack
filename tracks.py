@@ -162,7 +162,8 @@ def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
   
   # dimensions
   data.createDimension('nTracks', None)
-  data.createDimension('nTimesTrack', nTimesInTrackMax+1)
+  #data.createDimension('nTimesTrack', nTimesInTrackMax+1)
+  data.createDimension('nTimesTrack', None) #unlimited dimension
   data.createDimension('nTimes', nTimes)
   
   tNow = dt.datetime.now().strftime(timeStringFormat)

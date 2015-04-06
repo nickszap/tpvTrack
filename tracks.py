@@ -329,7 +329,7 @@ def plot_tracks_metrics(fTracks, fSave):
   latInd = metricNames.index('latExtr')
   lonInd = metricNames.index('lonExtr')
   varKey = 'thetaExtr'
-  varInd = metricNames.index(varKey); varMin = 270.; varMax = 310.
+  varInd = metricNames.index(varKey); varMin = 270.; varMax = 310.; #varMin= 320.; varMax = 380.;
 
   trackList, timeList = read_tracks_metrics(fTracks, metricNames)
   

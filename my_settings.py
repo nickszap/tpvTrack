@@ -14,14 +14,16 @@ latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 1 #0-min, 1-max (2-both shouldn't be used w/o further development)
 info = '30N_eraI'
 
-fDirData = '/data02/cases/summer2006/eraI/pv/'
-filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.getmtime)
+#fDirData = '/data02/cases/summer2006/eraI/pv/'
+#filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.getmtime)
+fDirData = '/data01/tracks/summer07/eraI/'
+filesData = sorted(glob.glob(fDirData+'ERAI*.nc'), key=os.path.getmtime)
 print filesData
 fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
 
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)
-timeStart = dt.datetime(2006,6,1,0) #time=timeStart+iTime*deltaT
+timeStart = dt.datetime(2007,6,1,0) #time=timeStart+iTime*deltaT
 timeDelta = dt.timedelta(seconds=deltaT)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
@@ -33,17 +35,18 @@ if (True): #a quick check of specified times
     import sys
     sys.exit()
 
-fDirSave = '/data01/tracks/summer06/jun1-sep30/'
+fDirSave = '/data01/tracks/summer07/tpvTrack/'
+#fDirSave = '/data01/tracks/summer06/jun1-sep30/'
 #fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
 
 fMesh = filesData[0]  
-fMetr = fDirSave+'fields_debug.nc'
-fSeg = fDirSave+'seg_debug.nc'
+fMetr = fDirSave+'fields.nc'
+fSeg = fDirSave+'seg.nc'
 fCorr = fDirSave+'correspond_high.nc'
 fTrack = fDirSave+'tracks_high.nc'
-fMetrics = fDirSave+'metrics_debug.nc'
+fMetrics = fDirSave+'metrics.nc'
 
 inputType = 'eraI'
 doPreProc = False

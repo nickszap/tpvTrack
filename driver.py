@@ -293,7 +293,7 @@ def demo_algo_plots():
     dataMetr.close()
   
   #time correspondence -----------------
-  if (True):
+  if (False):
     dataMetr = netCDF4.Dataset(fMetr,'r')
     dataSeg = netCDF4.Dataset(fSeg,'r')
     dataMetrics = netCDF4.Dataset(fMetrics, 'r')

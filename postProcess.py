@@ -56,7 +56,9 @@ def calc_counts(dataSeg, dataTrack):
     
     sitesInTrack = dataTrack.variables['siteExtr'][iTrack,0:nTimes]
     
-    for iTime in xrange(nTimes):
+    #for iTime in xrange(nTimes):
+    for iTime in xrange(1):
+    #for iTime in xrange(nTimes-1, nTimes):
       iTimeGlobal = iTime0+iTime
       site = sitesInTrack[iTime]
       
@@ -68,9 +70,9 @@ def calc_counts(dataSeg, dataTrack):
   return countIn
 
 def demo_counts():
-  fDir = '/data02/tracks/summer06/jun1-sep30/'
-  fMetr = fDir+'fields_debug.nc'
-  fSeg = fDir+'seg_debug.nc'
+  fDir = '/data02/tracks/summer07/tpvTrack/' #'/data02/tracks/summer06/jun1-sep30/'
+  fMetr = fDir+'fields.nc'
+  fSeg = fDir+'seg.nc'
   fTrack = fDir+'tracks_high.nc'
   
   dataSeg = netCDF4.Dataset(fSeg, 'r')
@@ -82,7 +84,7 @@ def demo_counts():
   lat = dataMetr.variables['latCell'][:]
   lon = dataMetr.variables['lonCell'][:]
   
-  plot_sfc(lat, lon, counts, fNameSave=None, title = 'Count of 2006 highs')
+  plot_sfc(lat, lon, counts, fNameSave=None, title = 'Genesis count of 2007 highs')
     
 def demo_plotMetrics(fTracks):
 
@@ -348,10 +350,10 @@ def demo_calendarMetric():
   plt.show()
 
 if __name__=='__main__':
-  #demo_counts()
+  demo_counts()
   #demo_plot_minMax_life()
   #demo_compareMetrics_pretty()
   #demo_calendarLife()
-  demo_calendarMetric()
+  #demo_calendarMetric()
 
 

@@ -45,6 +45,8 @@ def demo():
     elif (my_settings.inputType=='wrf_trop'):
       mesh, cell0 = preProcess.demo_wrf_trop(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, 
                                              my_settings.fileMap, info=info, pvIndex=3)
+    elif (my_settings.inputType=='cesmLE'):
+      mesh, cell0 = preProcess.demo_cesmLE(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
       
@@ -59,6 +61,8 @@ def demo():
       mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
     elif (my_settings.inputType=='wrf_trop'):
       mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, my_settings.fileMap)
+    elif (my_settings.inputType=='cesmLE'):
+      mesh, cell0 = preProcess.demo_cesmLE(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
   
@@ -282,18 +286,20 @@ def demo_algo_plots():
     mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, my_settings.rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
   elif (my_settings.inputType=='wrf_trop'):
       mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, my_settings.fileMap)
+  elif (my_settings.inputType=='cesmLE'):
+      mesh, cell0 = preProcess.demo_cesmLE(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
   else:
     print "Unrecognized input type in my_settings: ",my_settings.inputType
   
   #segment --------------------------
-  if (False):
+  if (True):
     dataMetr = netCDF4.Dataset(fMetr,'r');
     segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
     
     dataMetr.close()
   
   #time correspondence -----------------
-  if (False):
+  if (True):
     dataMetr = netCDF4.Dataset(fMetr,'r')
     dataSeg = netCDF4.Dataset(fSeg,'r')
     dataMetrics = netCDF4.Dataset(fMetrics, 'r')

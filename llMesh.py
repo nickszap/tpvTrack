@@ -13,7 +13,7 @@ def area_latLonCell(latN, latS, dLon, r):
   
   solidAngle = dLon*(np.sin(latN)-np.sin(latS))
   area = solidAngle*r*r
-  return area
+  return np.absolute(area) #area
     
 def calc_areaLatStrips(lat, r):
   #return the areas of the latitude strips centered around the specified points.

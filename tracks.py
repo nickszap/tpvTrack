@@ -342,7 +342,7 @@ def plot_tracks_metrics(fTracks, fSave):
   for iTrack,track in enumerate(trackList):
     nTimes = track.shape[0]
     if (True):
-      if (nTimes<4):
+      if (nTimes<80):
         continue
     
     lat = track[:,latInd]

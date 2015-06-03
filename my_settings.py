@@ -14,8 +14,8 @@ latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
 info = '30N'
 
-fDirData = '/glade/scratch/szapiro/cesm_le/hourly6/'
-filesData = sorted(glob.glob(fDirData+'trop_b.e11.B20TRC5CNBDRD.f09_g16.001.cam.h2*.nc'), key=os.path.getmtime)
+fDirData = '/data01/tracks/cesmLE/mem.024.2026/'
+filesData = sorted(glob.glob(fDirData+'trop_*.nc'), key=os.path.getmtime)
 #fDirData = '/data01/tracks/summer07/eraI/'
 #filesData = sorted(glob.glob(fDirData+'ERAI*.nc'), key=os.path.getmtime)
 print filesData
@@ -23,11 +23,12 @@ fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
 
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)
-timeStart = dt.datetime(1990,1,1,0) #time=timeStart+iTime*deltaT
+t0 = 2034; tRef = 2026; iTime = 365*4*(t0-tRef)
+timeStart = dt.datetime(t0,1,1,0) #time=timeStart+iTime*deltaT
 timeDelta = dt.timedelta(seconds=deltaT)
-#select time intervals within filesData[iFile]...end[-1] means use all times
-iTimeStart_fData = [0]
-iTimeEnd_fData = [365*4] #[-1]
+
+iTimeStart_fData = [iTime]
+iTimeEnd_fData = [iTime+365*4] #[-1]
 if (True): #a quick check of specified times
   nFiles = len(filesData)
   if (len(iTimeStart_fData) != nFiles or len(iTimeEnd_fData) != nFiles):
@@ -35,16 +36,17 @@ if (True): #a quick check of specified times
     import sys
     sys.exit()
 
-fDirSave = '/glade/p/work/szapiro/ICs/cesm_le/tpvTrack/mem.001.1990/'
+#fDirSave = '/data01/tracks/cesmLE/mem.024.2026/'
+fDirSave = fDirData
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
 
 fMesh = filesData[0]  
-fMetr = fDirSave+'fields.nc'
-fSeg = fDirSave+'seg.nc'
-fCorr = fDirSave+'correspond_horizPlusVert.nc'
-fTrack = fDirSave+'tracks_low_horizPlusVert.nc'
-fMetrics = fDirSave+'metrics.nc'
+fMetr = fDirSave+'fields_{0}.nc'.format(t0)
+fSeg = fDirSave+'seg_{0}.nc'.format(t0)
+fCorr = fDirSave+'correspond_horizPlusVert_{0}.nc'.format(t0)
+fTrack = fDirSave+'tracks_low_horizPlusVert_{0}.nc'.format(t0)
+fMetrics = fDirSave+'metrics_{0}.nc'.format(t0)
 
 inputType = 'cesmLE'
 doPreProc = True

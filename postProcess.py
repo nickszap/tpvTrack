@@ -23,7 +23,8 @@ def plot_sfc(lat, lon, vals, fNameSave=None, title = ''):
   m.drawcoastlines(linewidth=.5)
   #m.drawmapboundary()
   
-  pPlot = m.pcolor(x,y,vals,tri=True, shading='flat',edgecolors='none',cmap=plt.cm.RdBu_r) #, vmin=280, vmax=360)
+  #pPlot = m.pcolor(x,y,vals,tri=True, shading='flat',edgecolors='none',cmap=plt.cm.RdBu_r) #, vmin=280, vmax=360)
+  pPlot = m.pcolor(x,y,vals,tri=True, shading='flat',edgecolors='none',cmap=plt.cm.RdBu_r, vmin=0, vmax=.6)
 
   plt.colorbar(pPlot)
   plt.title(title)
@@ -32,13 +33,21 @@ def plot_sfc(lat, lon, vals, fNameSave=None, title = ''):
   else:
     plt.savefig(fNameSave, bbox_inches='tight'); plt.close()
 
-def calc_counts(dataSeg, dataTrack):
+def calc_counts(dataSeg, dataTrack, timeStampStart=None, timeStampEnd=None):
   #counts of number of basins in each cell
   
   #for composite-ing field using the basin as a filter
   nCells = len(dataSeg.dimensions['nCells'])
   countIn = np.zeros(nCells, dtype=int)
   
+  iTimeValidStart = 0; iTimeValidEnd = len(dataTrack.dimensions['nTimes'])
+  timeStamps = dataTrack.variables['timeStamp'][:]
+  if (timeStampStart != None):
+    iTimeValidStart = np.nonzero(timeStamps == timeStampStart)[0][0] #this will exit if user inputs bad timeStampStart, which isn't a bad thing
+  if (timeStampEnd != None):
+    iTimeValidEnd = np.nonzero(timeStamps == timeStampEnd)[0][0]
+  print 'Accumulating counts over interval {0} to {1}'.format(timeStamps[iTimeValidStart], timeStamps[iTimeValidEnd])
+    
   nTracks = len(dataTrack.dimensions['nTracks'])
   for iTrack in xrange(nTracks):
     #tracking the cells in the basin to define the horizontal filter
@@ -50,16 +59,20 @@ def calc_counts(dataSeg, dataTrack):
     iTime0 = dataTrack.variables['iTimeStart'][iTrack]
     nTimes = dataTrack.variables['lenTrack'][iTrack]
     if (True):
-      nMin = 4; #print "Not counting tracks with nTimes<",nMin
+      nMin = 4*2; #print "Not counting tracks with nTimes<",nMin
       if (nTimes<nMin):
         continue
     
     sitesInTrack = dataTrack.variables['siteExtr'][iTrack,0:nTimes]
     
-    #for iTime in xrange(nTimes):
-    for iTime in xrange(1):
+    for iTime in xrange(nTimes):
+    #for iTime in xrange(1):
     #for iTime in xrange(nTimes-1, nTimes):
       iTimeGlobal = iTime0+iTime
+      
+      if ((iTimeGlobal<iTimeValidStart) or (iTimeGlobal>iTimeValidEnd)):
+        continue
+      
       site = sitesInTrack[iTime]
       
       cell2Site = dataSeg.variables['cell2Site'][iTimeGlobal,:]
@@ -67,24 +80,32 @@ def calc_counts(dataSeg, dataTrack):
         
       countIn += inBasin #adds True==1
       
-  return countIn
+  #return countIn
+  return countIn, iTimeValidEnd-iTimeValidStart
 
 def demo_counts():
-  fDir = '/data02/tracks/summer07/tpvTrack/' #'/data02/tracks/summer06/jun1-sep30/'
-  fMetr = fDir+'fields.nc'
-  fSeg = fDir+'seg.nc'
-  fTrack = fDir+'tracks_high.nc'
+  fDir = '/data01/tracks/cesmLE/mem.024.2026/' #'/data02/tracks/summer06/jun1-sep30/'
+  #fMetr = fDir+'fields.nc'
+  #fSeg = fDir+'seg.nc'
+  #fTrack = fDir+'tracks_low_horizPlusVert.nc'
+  fMetr = fDir+'fields_2032.nc'
+  fSeg = fDir+'seg_2032.nc'
+  fTrack = fDir+'tracks_low_horizPlusVert_2032.nc'
+  timeStampStart = '2032-05-01-00'; timeStampEnd = '2032-08-01-00'
   
   dataSeg = netCDF4.Dataset(fSeg, 'r')
   dataTrack = netCDF4.Dataset(fTrack,'r')
   
-  counts = calc_counts(dataSeg, dataTrack)
+  #counts = calc_counts(dataSeg, dataTrack)
+  #counts = calc_counts(dataSeg, dataTrack, timeStampStart=timeStampStart, timeStampEnd=timeStampEnd)
+  counts, nTimesInterval = calc_counts(dataSeg, dataTrack, timeStampStart=timeStampStart, timeStampEnd=timeStampEnd)
   
   dataMetr = netCDF4.Dataset(fMetr,'r')
   lat = dataMetr.variables['latCell'][:]
   lon = dataMetr.variables['lonCell'][:]
   
-  plot_sfc(lat, lon, counts, fNameSave=None, title = 'Genesis count of 2007 highs')
+  #plot_sfc(lat, lon, counts, fNameSave=None, title = 'Lifetime count of 2032 iMem24 lows')
+  plot_sfc(lat, lon, counts/float(nTimesInterval), fNameSave=None, title = 'Fraction of MJJ 2032 with lows')
     
 def demo_plotMetrics(fTracks):
 
@@ -257,9 +278,11 @@ def demo_compareMetrics_pretty():
         plt.savefig(saveName); plt.close()
         
 def demo_calendarLife():
-  filesTracks = ['/data02/tracks/summer06/jun1-sep30/tracks_test_tanh_.66.nc', '/data02/tracks/summer06/jun1-sep30/tracks_high.nc',
-                 '/data02/tracks/summer07/tpvTrack/tracks_low.nc', '/data02/tracks/summer07/tpvTrack/tracks_high.nc']
-  info = ['lows2006', 'highs2006','lows2007', 'highs2007']
+  #filesTracks = ['/data02/tracks/summer06/jun1-sep30/tracks_test_tanh_.66.nc', '/data02/tracks/summer06/jun1-sep30/tracks_high.nc', '/data02/tracks/summer07/tpvTrack/tracks_low.nc', '/data02/tracks/summer07/tpvTrack/tracks_high.nc']
+  #info = ['lows2006', 'highs2006','lows2007', 'highs2007']
+  fDir = '/data01/tracks/cesmLE/mem.024.2026/'
+  filesTracks = [fDir+'tracks_low_horizPlusVert_2032.nc', fDir+'tracks_low_horizPlusVert_2034.nc']
+  info = ['lows2032', 'lows2034']
   
   f = filesTracks[0]
   data = netCDF4.Dataset(f,'r')
@@ -285,15 +308,15 @@ def demo_calendarLife():
     data.close()
   vals *= deltaT
   
-  plt.figure()
+  fig, ax = plt.subplots(1)
   plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%m/%d')) #('%Y/%m/%d/%H'))
-  plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=7))
+  plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=15))
   plt.gca().xaxis.set_minor_locator(mdates.DayLocator(interval=1))
-  #a.autofmt_xdate()
+  fig.autofmt_xdate()
   
   for iFile in xrange(nFiles):
-    plt.plot(times, vals[iFile,:], label=info[iFile])
-  plt.legend()
+    ax.plot(times, vals[iFile,:], label=info[iFile])
+  ax.legend()
   plt.xlabel("Start date")
   plt.ylabel("Lifetime ({0})".format(units))
   plt.show()

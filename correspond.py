@@ -209,7 +209,10 @@ def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, 
       lenRange = rangeTop-rangeBottom
       #lenPossible = max(len0[iSite0], len1[iSite1])
       lenPossible = 0.0
-      #especially considering foothills sensitivity, really care about whether extreme depth overlaps
+      #especially considering foothills sensitivity, really care about whether extreme depth overlaps.
+      #The problem with using < lenPossible = rangeTop- min(min0[iSite0],min1[iSite1]) > is if small, low PT TPV is on exterior of deep basin then the rangeTop will be too low. 
+      #the problem with using < lenPossible = max(max0[iSite0],max1[iSite1])- min(min0[iSite0],min1[iSite1]) > is that the reference range is large so there's less discrimination.
+      rangeTop = .5*(max0[iSite0]+max1[iSite1]); rangeBottom = .5*(min0[iSite0]+min1[iSite1]);
       if (siteIsMin):
         lenPossible = rangeTop- min(min0[iSite0],min1[iSite1])
       else:
@@ -365,7 +368,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
   print "Number of matches after horizontal overlap: {0}".format(np.sum(isMatch))
   fracOverlapPT = calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, trackMinMaxBoth==0)
   #tanh(2)~.96 so can construct profile s.t. areaOverlapThresh->1
-  #tanhGoal = .66; tanhFac = 2./tanhGoal
+  tanhGoal = .66; tanhFac = 2./tanhGoal
   
   #decide type of site correspondence (major vs. minor) ------------------
   #0-noMatch, 1-minor, 2-major
@@ -384,7 +387,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       typeMatch01[iSite0,sites1==site1] = 2
     else:
       #d = wtHoriz*fracOverlap[iSite0, isMatch[iSite0,:]>0]+wtVert*fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
-      #d = np.tanh(tanhFac*fracOverlapMax[iSite0, isMatch[iSite0,:]>0])*fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
+      #d = np.tanh(tanhFac*fracOverlapMax[iSite0, isMatch[iSite0,:]>0])+fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
       d = fracOverlapMax[iSite0, isMatch[iSite0,:]>0] + fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
       #d = fracOverlapMax[iSite0, isMatch[iSite0,:]>0]*fracOverlapPT[iSite0, isMatch[iSite0,:]>0]
       minInd = np.argmax(d); #print d,'\n',d[minInd]
@@ -405,7 +408,7 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
       typeMatch10[sites0==site0,iSite1] = 2
     else:
       #d = wtHoriz*fracOverlap[isMatch[:,iSite1]>0, iSite1]+wtVert*fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
-      #d = np.tanh(tanhFac*fracOverlapMax[isMatch[:,iSite1]>0, iSite1])*fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
+      #d = np.tanh(tanhFac*fracOverlapMax[isMatch[:,iSite1]>0, iSite1])+fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
       d = fracOverlapMax[isMatch[:,iSite1]>0, iSite1] + fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
       #d = fracOverlapMax[isMatch[:,iSite1]>0, iSite1]*fracOverlapPT[isMatch[:,iSite1]>0, iSite1]
       minInd = np.argmax(d); #print d,'\n',d[minInd]

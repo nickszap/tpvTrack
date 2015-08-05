@@ -364,6 +364,86 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   
   return mesh, cell0  
 
+def demo_mpasRegrid(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='mpas2ll case'):
+  #mesh ---------------------
+  d2r = np.pi/180.; 
+  lat = np.linspace(np.pi/2, -np.pi/2, 361); lon = np.linspace(0, 2*np.pi, 721)[0:-1] #don't keep 360==0
+  #lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
+  #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
+  lon = lon%(2.*np.pi)
+  
+  mesh = llMesh.Mesh(lat,lon, r, dRegion)
+  #mesh.fill_latCellArea()
+  mesh.fill_inDisk()
+  mesh.fill_inRegion(latThresh)
+  cell0 = llMesh.Cell(mesh,-1)
+  
+  #metr fields -----------------
+  nFiles = len(filesDataIn)
+  if (nFiles<1):
+    return mesh, cell0
+  
+  ll2mpasCell = mpasMesh.make_nearestRegrid(fMesh, lat, lon)
+  nLat = len(lat); nLon = len(lon)
+  theta_ll = np.empty((nLat,nLon),dtype=float)
+  u_ll = np.empty((nLat,nLon),dtype=float); v_ll = np.empty((nLat,nLon),dtype=float);
+  dataMPAS = netCDF4.Dataset(fMesh, 'r')
+  nEdgesOnCell = dataMPAS.variables['nEdgesOnCell'][:];
+  cellsOnCell = dataMPAS.variables['cellsOnCell'][:]-1;
+  latCell = dataMPAS.variables['latCell'][:];
+  lonCell = dataMPAS.variables['lonCell'][:];
+  dataMPAS.close()
+  
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
+  iTimeGlobal = 0
+  for iFile in xrange(nFiles):
+    fPath = filesDataIn[iFile]
+    data = netCDF4.Dataset(fPath,'r')
+    
+    #loop over individual times ------------------------------
+    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
+    if (iTimeEnd<0): #use all times in file
+      nTimes = len(data.dimensions['Time'])
+      iTimeEnd = nTimes-1
+    for iTime in xrange(iTimeStart,iTimeEnd+1):
+      #read from file
+      thetaMPAS = data.variables['theta_pv'][iTime,:]
+      uMPAS = data.variables['u_pv'][iTime,:]; vMPAS = data.variables['v_pv'][iTime,:]
+      
+      if (True): #nearest neighbor interpolation
+        for iLat in xrange(nLat):
+          theta_ll[iLat,:] = thetaMPAS[ll2mpasCell[iLat,:]]; u_ll[iLat,:] = uMPAS[ll2mpasCell[iLat,:]]; v_ll[iLat,:] = vMPAS[ll2mpasCell[iLat,:]]
+      elif (False): #inverse distance weighting
+        for iLat in xrange(nLat):
+          for iLon in xrange(nLon):
+            iCell = ll2mpasCell[iLat,iLon]
+            nNbrs = nEdgesOnCell[iCell]; nbrs = cellsOnCell[iCell,0:nNbrs]
+            cellsRegion = np.append(nbrs,iCell)
+            d = helpers.calc_distSphere_multiple(6371., lat[iLat], lon[iLon], latCell[cellsRegion], lonCell[cellsRegion])
+            d[d<1.e-12] = 1.e-12
+            wts = 1./d; wts /= np.sum(wts)
+            
+            theta_ll[iLat,iLon] = np.dot(thetaMPAS[cellsRegion], wts)
+            u_ll[iLat,iLon] = np.dot(uMPAS[cellsRegion],wts)
+            v_ll[iLat,iLon] = np.dot(vMPAS[cellsRegion],wts)
+      
+      #compute additional fields
+      vort = calc_vertVorticity_ll(u_ll, v_ll, mesh.nLat, mesh.nLon, mesh.lat, r)
+    
+      #write to file
+      u = helpers.flatten_2dTo1d(u_ll, mesh.nLat, mesh.nLon)
+      v = helpers.flatten_2dTo1d(v_ll, mesh.nLat, mesh.nLon)
+      theta = helpers.flatten_2dTo1d(theta_ll, mesh.nLat, mesh.nLon)
+      vort = helpers.flatten_2dTo1d(vort, mesh.nLat, mesh.nLon)
+      
+      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
+      iTimeGlobal = iTimeGlobal+1
+    #end iTime
+  #end iFile
+  dataOut.close()
+  
+  return mesh, cell0
+
 def write_netcdf_header_metr(fName, info, mesh):
   
   data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
@@ -412,8 +492,9 @@ def plot_metr(fMetr):
   nTimes = len(data.dimensions['time'])
   lat = data.variables['latCell'][:]*180./np.pi
   lon = data.variables['lonCell'][:]*180./np.pi
+  lat += np.random.random(len(lat))*.01
   
-  m = Basemap(projection='ortho',lon_0=0,lat_0=90., resolution='l')
+  m = Basemap(projection='ortho',lon_0=0,lat_0=89, resolution='l')
   x,y = m(lon, lat)
   
   keys = ['u','v','theta','vort']
@@ -429,11 +510,12 @@ def plot_metr(fMetr):
       plt.colorbar()
       plt.title(key)
       
-      s = '{0}_t{1}.png'.format(key, iTime)
+      s = '{0}_t{1}.png'.format(key, iTime); print 'Saving figure: ', s
       plt.savefig(s, bbox_inches='tight'); plt.close()
 
 if __name__ == '__main__':
-  fMetr = '/data01/tracks/wrf/algo/fields_debug.nc'
+  #fMetr = '/data01/tracks/wrf/algo/fields_debug.nc'
+  fMetr = '/data02/cases/cases_table/nwp/tpvTrack/regrid/20060801/midLat/fields.nc'
   plot_metr(fMetr)
       
 # ------------------------- Untested code --------------------------------

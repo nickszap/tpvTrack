@@ -198,6 +198,11 @@ def segment_high_low_watershed_region(theta, vort, cell0, mesh):
         cell2Site[iCell] = cell2SiteMax[iCell]
       else: #0 or cyclonic
         cell2Site[iCell] = cell2SiteMin[iCell]
+      
+      if (True): #"foothills" region w/ order of magnitude lower vorticity than core
+        refVort = np.absolute(vort[cell2Site[iCell]]); refFac = .1
+        if (vort[iCell]<refFac*refVort and vort[iCell]>-refFac*refVort):
+          cell2Site[iCell] = -1
           
   return (cell2Site, cellIsMin, cellIsMax)
 

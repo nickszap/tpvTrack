@@ -1,4 +1,5 @@
 import numpy as np
+import netCDF4
 
 import helpers
 
@@ -46,6 +47,41 @@ def gatherCells_radius(pt_ll, rDisk, rEarth, c0, cellsOnCell, nEdgesOnCell, latC
       farCells.append(c0)
 
   return closeCells
+
+def make_nearestRegrid(fMPAS, latsNew, lonsNew):
+  #Input lat/lon arrays (in radians)
+  #Return corresponding MPAS cell indices
+  
+  nLat = len(latsNew); nLon = len(lonsNew);
+  ll2MPASCell = np.empty((nLat,nLon),dtype=int)
+  
+  #mpas connectivity info
+  data = netCDF4.Dataset(fMPAS, 'r')
+  nEdgesOnCell = data.variables['nEdgesOnCell'][:];
+  cellsOnCell = data.variables['cellsOnCell'][:]-1;
+  latCell = data.variables['latCell'][:];
+  lonCell = data.variables['lonCell'][:];
+  data.close()
+  
+  #associate to nearest neighbor
+  iCell=0; pt_ll = np.empty(2,dtype=float)
+  for iLat in xrange(nLat):
+    for iLon in xrange(nLon):
+      pt_ll[0] = latsNew[iLat]; pt_ll[1] = lonsNew[iLon]
+      iCell = findOwner_horizNbrs_latLon(pt_ll, iCell, latCell, lonCell, nEdgesOnCell, cellsOnCell)
+      ll2MPASCell[iLat,iLon] = iCell
+  
+  if (True):
+    #print some diagnostics on how close the regrid cells are
+    dError = np.empty((nLat,nLon),dtype=float)
+    for iLat in xrange(nLat):
+      for iLon in xrange(nLon):
+        pt_ll[0] = latsNew[iLat]; pt_ll[1] = lonsNew[iLon]
+        dError[iLat,iLon] = helpers.calc_distSphere_multiple(6371., pt_ll[0], pt_ll[1], latCell[ll2MPASCell[iLat,iLon]], lonCell[ll2MPASCell[iLat,iLon]])
+    #
+    print 'Mean,max,min nearest neighbor regrid distance errors (km): ', np.mean(dError), np.max(dError), np.min(dError)
+  
+  return ll2MPASCell
 
 class Mesh(object):
   def __init__(self,lat,lon, areaCell, cellsOnCell, nCellsOnCell, r, rDisk):

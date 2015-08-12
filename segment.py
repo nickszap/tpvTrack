@@ -1,5 +1,6 @@
 import numpy as np
 import netCDF4
+import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 
@@ -7,6 +8,23 @@ import helpers
 
 #watershed has a few options for implementation:
 #-for every cell, walk down steepest gradient to the basin
+
+def find_basinBoundaries(cell2Site, cell0, mesh):
+  #a basin boundary is a cell with a cell2Site pointing to another basin
+  
+  isBoundary = np.zeros(mesh.nCells, dtype=int)
+  for cell in iter(cell0.copy()): #not that cell referring to cell0 changes cell0
+    if (not cell.isInRegion()):
+      continue
+    
+    iCell = cell.ind
+    nbrs = cell.get_nbrInds()
+    
+    val0 = cell2Site[iCell]; valNbrs = cell2Site[nbrs]
+    if ( np.any(val0 != valNbrs) ): #have nbr with different basin
+      isBoundary[iCell] = 1
+  
+  return isBoundary
 
 def find_minCells_region_flat(vals, cell0, mesh):
   #return array[nCells] with 1 if cell is min and cell in region
@@ -198,6 +216,32 @@ def segment_high_low_watershed_region(theta, vort, cell0, mesh):
         cell2Site[iCell] = cell2SiteMax[iCell]
       else: #0 or cyclonic
         cell2Site[iCell] = cell2SiteMin[iCell]
+  
+  #restrict basins to closed contours -------
+  print "Restricting basins to last closed contour w/in watershed"
+  
+  isBoundary = find_basinBoundaries(cell2Site, cell0.copy(), mesh)
+  for cell in iter(cell0.copy()):
+    iCell = cell.ind
+    if (cell2Site[iCell] == iCell): #loop by basin
+      theta0 = theta[iCell]
+      boundingBasin = (cell2Site==iCell)*(isBoundary)
+      thetaBoundary = theta[boundingBasin>0]
+      
+      #defining the last closed contour as smallest amplitude on boundary covers min and max.
+      #cells outside of contour are set to -1 == background
+      #minAmp = np.min( np.absolute(thetaBoundary-theta0) )
+      minAmp = np.percentile(np.absolute(thetaBoundary-theta0), 10)
+      
+      print 'theta0, thetaMinBound, thetaMaxBound, minAmp, site: ', theta0, np.min(thetaBoundary), np.max(thetaBoundary), minAmp, iCell
+      #[cell2Site[i]=-1 for i in xrange(mesh.nCells) if (cell2Site[i]==iCell and abs(theta[i]-theta0)>minAmp)] #i don't think we can set values in list comprehension
+      '''
+      for i in xrange(mesh.nCells):
+        if (cell2Site[i]==iCell and abs(theta[i]-theta0)>minAmp):
+          cell2Site[i]=-1
+      '''
+      toRemove = (cell2Site==iCell)*(np.absolute(theta-theta0)>minAmp); print 'Removed cells {0}/{1}'.format(np.sum(toRemove), np.sum(cell2Site==iCell))
+      cell2Site[toRemove>0] = -1
           
   return (cell2Site, cellIsMin, cellIsMax)
 
@@ -286,7 +330,11 @@ def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
   m.drawcoastlines(linewidth=.5)
   #m.drawmapboundary()
   
-  pPlot = m.pcolor(x,y,vals,tri=True, shading='flat',edgecolors='none',cmap=plt.cm.jet, vmin=280, vmax=360)
+  #plot nan's with different color
+  maskedVals = np.ma.array(vals, mask=np.isnan(vals))
+  cmap = matplotlib.cm.jet
+  cmap.set_bad('w',1.)
+  pPlot = m.pcolor(x,y,maskedVals,tri=True, shading='flat',edgecolors='none',cmap=cmap, vmin=280, vmax=360)
   
   xMin = x[sitesMin]; yMin = y[sitesMin]; m.scatter(xMin, yMin, c='k', marker="v")
   xMax = x[sitesMax]; yMax = y[sitesMax]; m.scatter(xMax, yMax, c='w', marker="^")

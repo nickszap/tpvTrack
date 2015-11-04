@@ -78,42 +78,42 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
   
   #Filter local extrema by area to limit high (spatial) frequency "noise".
   #An extremum must be an extremum within the filter region
-- nRedirect = 0
-- for cell in iter(cell0.copy()):
--   if (not cell.isInRegion()):
--     continue
--      
--   iCell = cell.ind
--   if (cellIsMin[iCell]>0):
--     #see if cell is min in region, not just neighbors.
--     #if not regional min, update cell2Site so local min goes to another basin
--     cellsRegion = cell.get_regionInds()
--     valsRegion = vals[cellsRegion]
--     minInd = np.argmin(valsRegion)
--     minVal = valsRegion[minInd]; minCell = cellsRegion[minInd];
--     val0 = vals[iCell]; #print val0, minVal
--     if (minVal < val0):
--       #print "Redirecting cell {0} to {1}".format(iCell, minCell)
--       cellIsMin[iCell] = 0
--       cell2Site[iCell] = minCell
--       nRedirect = nRedirect+1
--     else:
--       #cell is min, but not necessarily distinct min (ie strictly less than all other values w/in disk).
--       #here, we deal with the case where multiple cells in region all have the exact same value.
--       #3 (or nLon) neigboring mins should be 1 tpv, not 3 (physically).
--       #we'll redirect to the maximum index within disk (so all cells redirect to accepted min).
--        
--       #While unlikely for 2 general floats to be equal, this can arise from:
--       #-idealized initialization
--       #-compressed storage of variables (eg, ERA-I stores as shorts where val=short*scale+offset)
--       isDiskMin = valsRegion==minVal
--       if (np.sum(isDiskMin)>1):
--         indsOfMins = cellsRegion[isDiskMin>0]
--         minCell = np.max(indsOfMins)
--         if (iCell != minCell):
--           cellIsMin[iCell] = 0
--           cell2Site[iCell] = minCell
--           nRedirect = nRedirect+1
+  nRedirect = 0
+  for cell in iter(cell0.copy()):
+    if (not cell.isInRegion()):
+      continue
+       
+    iCell = cell.ind
+    if (cellIsMin[iCell]>0):
+      #see if cell is min in region, not just neighbors.
+      #if not regional min, update cell2Site so local min goes to another basin
+      cellsRegion = cell.get_regionInds()
+      valsRegion = vals[cellsRegion]
+      minInd = np.argmin(valsRegion)
+      minVal = valsRegion[minInd]; minCell = cellsRegion[minInd];
+      val0 = vals[iCell]; #print val0, minVal
+      if (minVal < val0):
+        #print "Redirecting cell {0} to {1}".format(iCell, minCell)
+        cellIsMin[iCell] = 0
+        cell2Site[iCell] = minCell
+        nRedirect = nRedirect+1
+      else:
+        #cell is min, but not necessarily distinct min (ie strictly less than all other values w/in disk).
+        #here, we deal with the case where multiple cells in region all have the exact same value.
+        #3 (or nLon) neigboring mins should be 1 tpv, not 3 (physically).
+        #we'll redirect to the maximum index within disk (so all cells redirect to accepted min).
+         
+        #While unlikely for 2 general floats to be equal, this can arise from:
+        #-idealized initialization
+        #-compressed storage of variables (eg, ERA-I stores as shorts where val=short*scale+offset)
+        isDiskMin = valsRegion==minVal
+        if (np.sum(isDiskMin)>1):
+          indsOfMins = cellsRegion[isDiskMin>0]
+          minCell = np.max(indsOfMins)
+          if (iCell != minCell):
+            cellIsMin[iCell] = 0
+            cell2Site[iCell] = minCell
+            nRedirect = nRedirect+1
   print "Number of min after redirect: ", np.sum(cellIsMin>0)
   
   #follow local steepest path (and any redirections from, say, regional thresholds) to site

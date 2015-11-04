@@ -160,7 +160,7 @@ def eraTimeToCalendarTime(hrs):
   s = time.strftime('%Y-%m-%d_%H', tTuple)
   return s  
 
-def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='eraI case'):
+def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='eraI case', iMem='N/A'):
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
   d2r = np.pi/180.; 
@@ -195,8 +195,12 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
       iTimeEnd = nTimes-1
     for iTime in xrange(iTimeStart,iTimeEnd+1):
       #read from file
-      theta = data.variables['pt'][iTime,:,:]
-      u = data.variables['u'][iTime,:,:]; v = data.variables['v'][iTime,:,:]
+      if (iMem == 'N/A'):
+        theta = data.variables['pt'][iTime,:,:]
+        u = data.variables['u'][iTime,:,:]; v = data.variables['v'][iTime,:,:]
+      else:
+        theta = data.variables['pt'][iTime,iMem,:,:]
+        u = data.variables['u'][iTime,iMem,:,:]; v = data.variables['v'][iTime,iMem,:,:]
       
       #fill in missing values w/in region
       #ERA-I doesn't appear to have any missing values...I don't know how their interpolation works.

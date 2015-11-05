@@ -36,7 +36,8 @@ if (True): #a quick check of specified times
     sys.exit()
 
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
-fDirSave = '/data01/tracks/tigge/2007-07/tracks/{0}/'
+fDirSaveTemplate = '/data01/tracks/tigge/2007-07/tracks/{0}/'
+fDirSave = fDirSaveTemplate
 #fDirSave = '/data01/tracks/wrf/algo/'
 '''
 if not os.path.exists(fDirSave):
@@ -51,7 +52,7 @@ fTrack = fDirSave+'tracks_low_horizPlusVert.nc'
 fMetrics = fDirSave+'metrics.nc'
 
 def setFilenames(my_settings, iMem):
-  my_settings.fDirSave = my_settings.fDirSave.format(iMem)
+  my_settings.fDirSave = my_settings.fDirSaveTemplate.format(iMem)
   #fDirSave = '/data01/tracks/wrf/algo/'
   if not os.path.exists(fDirSave):
       os.makedirs(fDirSave)
@@ -61,6 +62,8 @@ def setFilenames(my_settings, iMem):
   my_settings.fCorr = my_settings.fDirSave+'correspond_horizPlusVert.nc'
   my_settings.fTrack = my_settings.fDirSave+'tracks_low_horizPlusVert.nc'
   my_settings.fMetrics = my_settings.fDirSave+'metrics.nc'
+  
+  return (my_settings.fDirSave, my_settings.fMetr, my_settings.fSeg, my_settings.fCorr, my_settings.fTrack, my_settings.fMetrics)
 
 inputType = 'eraI'
 doPreProc = True

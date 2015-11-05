@@ -18,18 +18,16 @@ def demo_ensemble():
   
   #TIGGE has all members in 1 netcdf file
   nMembers = 50
-  for iMem in xrange(nMembers):
+  for iMem in xrange(0,nMembers/2+1):
+  #for iMem in xrange(nMembers/2,nMembers):
     #setup -----------------
+    fDirSave, fMetr, fSeg, fCorr, fTrack, fMetrics = my_settings.setFilenames(my_settings,iMem)
+    print 'Saving member {0} to {1}'.format(iMem, fDirSave) 
+    
     info = my_settings.info
     filesData = my_settings.filesData
     
-    my_settings.setFilenames(my_settings,iMem)
     fMesh = my_settings.fMesh;
-    fMetr = my_settings.fMetr;
-    fSeg = my_settings.fSeg;
-    fCorr = my_settings.fCorr;
-    fTrack = my_settings.fTrack;
-    fMetrics = my_settings.fMetrics;
     
     rEarth = my_settings.rEarth
     dRegion = my_settings.dFilter
@@ -260,17 +258,13 @@ def demo_plotTracks():
 
 def demo_algo_plots():
   #setup -----------------
+  iMem = 25
+  fDirSave, fMetr, fSeg, fCorr, fTrack, fMetrics = my_settings.setFilenames(my_settings,iMem)
+  
   info = my_settings.info
   filesData = my_settings.filesData
   
-  iMem = 0
-  my_settings.setFilenames(my_settings,iMem)
-  fMesh = my_settings.fMesh  
-  fMetr = my_settings.fMetr
-  fSeg = my_settings.fSeg
-  fCorr = my_settings.fCorr
-  fTrack = my_settings.fTrack
-  fMetrics = my_settings.fMetrics
+  fMesh = my_settings.fMesh
   
   rEarth = my_settings.rEarth
   dRegion = my_settings.dFilter
@@ -290,18 +284,18 @@ def demo_algo_plots():
   #segment --------------------------
   if (False):
     dataMetr = netCDF4.Dataset(fMetr,'r');
-    segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
+    segment.run_plotBasins(fDirSave, dataMetr, fSeg, mesh)
     
     dataMetr.close()
   
   #time correspondence -----------------
-  if (True):
+  if (False):
     dataMetr = netCDF4.Dataset(fMetr,'r')
     dataSeg = netCDF4.Dataset(fSeg,'r')
     dataMetrics = netCDF4.Dataset(fMetrics, 'r')
     
     nTimes = len(dataSeg.dimensions['time'])
-    correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
+    correspond.plot_correspondences(fDirSave, fCorr, nTimes-1, mesh)
     
     dataMetrics.close()
     dataSeg.close()
@@ -309,7 +303,7 @@ def demo_algo_plots():
   
   #time tracks -------------------------
   if (True):
-    tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
+    tracks.plot_tracks_metrics(fTrack, fDirSave+'test_tracks.png')
   
   #time metrics ----------------------
 

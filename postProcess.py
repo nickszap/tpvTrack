@@ -9,8 +9,10 @@ from mpl_toolkits.basemap import Basemap
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import datetime as dt
+import subprocess
 
 import tracks
+import helpers
 import seaborn as sns
 
 r2d = 180./np.pi
@@ -349,11 +351,124 @@ def demo_calendarMetric():
   plt.ylabel("{0} ({1})".format(key, units))
   plt.show()
 
+def demo_casesTracks():
+  #
+  
+  t0 = '20070720'; tStamp = '2007-07-20-00'
+  fERA = '/data01/tracks/summer07/tpvTrack/tracks_low.nc'
+  data = netCDF4.Dataset(fERA,'r')
+  lenTracks = data.variables['lenTrack'][:]; iTrack = np.argmax(lenTracks);
+  timeStamps = data.variables['timeStamp'][:]; iTimeFile = timeStamps.tolist().index(tStamp)
+  iTime0 = data.variables['iTimeStart'][iTrack];
+  iTimeTrack = iTimeFile-iTime0
+  latERA = data.variables['latExtr'][iTrack,iTimeTrack]; lonERA = data.variables['lonExtr'][iTrack,iTimeTrack]; print 'lat,lon for date: ', timeStamps[iTime0], latERA, lonERA, t0
+  iTrackERA = iTrack; iTimeTrackERA = iTimeTrack
+  data.close()
+
+  fDir = '/data01/tracks/tigge/2007-07/tracks/'
+  cmd = 'find {0} -type f | grep tracks_low_horizPlusVert.nc'.format(fDir) #find filenames with 'log.algo' under fDir
+  print cmd;
+  result = subprocess.check_output(cmd, shell=True); fNames = result.strip().split()
+  fNames = [i for i in fNames];
+  print fNames
+
+  plt.figure()
+  m = Basemap(projection='npstere', boundinglat=60, lon_0=0, resolution='l')#, round=True)
+  m.drawcoastlines()
+  
+  maxTimesTrack = 0
+  for f in fNames:
+    data = netCDF4.Dataset(f,'r')
+
+    #follow the tpv with longest life near the starting location (from ERA-I)...is there a better way?
+    candTracks = np.where(data.variables['iTimeStart'][:]==0)[0]
+    latCands = data.variables['latExtr'][candTracks,0]; lonCands = data.variables['lonExtr'][candTracks,0]
+    d = helpers.calc_distSphere_multiple(6370., latERA*np.pi/180, lonERA*np.pi/180, latCands*np.pi/180, lonCands*np.pi/180)
+    candTracks = candTracks[d<200]
+
+    lenTracks = data.variables['lenTrack'][candTracks]
+    iTrack = np.argmax(lenTracks); iTrack = candTracks[iTrack]; print 'iTrack: ', iTrack, f
+
+    nTimesTrack = data.variables['lenTrack'][iTrack]
+    latTrack = data.variables['latExtr'][iTrack,0:nTimesTrack]
+    lonTrack = data.variables['lonExtr'][iTrack,0:nTimesTrack]
+    data.close()
+    maxTimesTrack = max(nTimesTrack,maxTimesTrack)
+
+    x,y = m(lonTrack,latTrack)
+    m.scatter(x[0],y[0], marker='+', color='g', s=100)
+    m.scatter(x[-1],y[-1], marker='o', color='r', s=50)
+    #lineStyle, wdth = get_ensembleStyle(f)
+    m.plot(x,y) #, lineStyle)
+  
+  data = netCDF4.Dataset(fERA,'r')
+  latERA = data.variables['latExtr'][iTrackERA,iTimeTrackERA:iTimeTrackERA+maxTimesTrack]; lonERA = data.variables['lonExtr'][iTrackERA,iTimeTrackERA:iTimeTrackERA+maxTimesTrack];
+  data.close()
+  x,y = m(lonERA,latERA)
+  m.scatter(x[0],y[0], marker='+', color='g', s=100)
+  m.scatter(x[-1],y[-1], marker='o', color='r', s=50)
+  #lineStyle, wdth = get_ensembleStyle(f)
+  m.plot(x,y, 'k-', linewidth=5.0)
+    
+  plt.show()
+
+def demo_error_ensTPVs():
+
+  key = 'thetaExtr'; units = 'K'
+  t0 = '20070720'; tStamp = '2007-07-20-00'
+  fERA = '/data01/tracks/summer07/tpvTrack/tracks_low.nc'
+  data = netCDF4.Dataset(fERA,'r')
+  lenTracks = data.variables['lenTrack'][:]; iTrack = np.argmax(lenTracks)
+  timeStamps = data.variables['timeStamp'][:]; iTimeFile = timeStamps.tolist().index(tStamp)
+  iTime0 = data.variables['iTimeStart'][iTrack];
+  iTimeTrack = iTimeFile-iTime0
+  latERA = data.variables['latExtr'][iTrack,iTimeTrack]; lonERA = data.variables['lonExtr'][iTrack,iTimeTrack]; print 'lat,lon for date: ', t0, latERA, lonERA
+  valsRef = data.variables[key][iTrack,iTimeTrack:]; print 'valsRef: ', valsRef
+  data.close()
+
+  fDir = '/data01/tracks/tigge/2007-07/tracks/'
+  cmd = 'find {0} -type f | grep tracks_low_horizPlusVert.nc'.format(fDir) #find filenames with 'log.algo' under fDir
+  print cmd;
+  result = subprocess.check_output(cmd, shell=True); fNames = result.strip().split()
+  fNames = [i for i in fNames] # if t0 in i];
+  print fNames
+
+  plt.figure()
+
+  for f in fNames:
+    data = netCDF4.Dataset(f,'r')
+
+    #follow the tpv with longest life near the starting location (from ERA-I)...is there a better way?
+    candTracks = np.where(data.variables['iTimeStart'][:]==0)[0]
+    latCands = data.variables['latExtr'][candTracks,0]; lonCands = data.variables['lonExtr'][candTracks,0]
+    d = helpers.calc_distSphere_multiple(6370., latERA*np.pi/180, lonERA*np.pi/180, latCands*np.pi/180, lonCands*np.pi/180)
+    candTracks = candTracks[d<200]
+
+    lenTracks = data.variables['lenTrack'][candTracks]
+    iTrack = np.argmax(lenTracks); iTrack = candTracks[iTrack]; print 'iTrack: ', iTrack
+
+    nTimesTrack = data.variables['lenTrack'][iTrack]
+    valsTrack = data.variables[key][iTrack,0:nTimesTrack];
+    print f, key, valsTrack.tolist(), data.variables['latExtr'][iTrack,0:nTimesTrack].tolist(), data.variables['lonExtr'][iTrack,0:nTimesTrack].tolist()
+    #dVals = valsTrack
+    #dVals = valsTrack-valsRef[0:nTimesTrack]
+    dVals = valsTrack-valsTrack[0]-(valsRef[0:nTimesTrack]-valsRef[0])
+
+    #lineStyle, wdth = get_ensembleStyle(f)
+    plt.plot(dVals) #, lineStyle)
+  plt.xlabel('Time')
+  plt.ylabel(key+', '+units)
+  plt.show()
+
+
 if __name__=='__main__':
-  demo_counts()
+  #demo_counts()
   #demo_plot_minMax_life()
   #demo_compareMetrics_pretty()
   #demo_calendarLife()
   #demo_calendarMetric()
+  demo_casesTracks()
+  demo_error_ensTPVs()
+
 
 

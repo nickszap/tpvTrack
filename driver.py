@@ -29,6 +29,10 @@ def demo():
   dRegion = my_settings.dFilter
   latThresh = my_settings.latThresh
   
+  myRank = my_settings.myRank
+  nRanks = my_settings.nRanks
+  commWorld = my_settings.commWorld
+  
   #datetime objects
   timeStartGlobal = my_settings.timeStart
   deltaTGlobal = my_settings.timeDelta
@@ -65,11 +69,28 @@ def demo():
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); 
   nTimes = len(dataMetr.dimensions['time']); #nTimes = 5
+  iStartGlobal=0; iEndGlobal = nTimes-1
   if (my_settings.doSeg):
     if (printTiming):
       tStart = datetime.now()
-      
-    segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes)
+    
+    #each worker segments over time independently
+    iStartRank,iEndRank = my_settings.getLimits_startStop(iStartGlobal, iEndGlobal, iWork=myRank, nWork=nRanks)  
+    #segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, iStartRank, iEndRank)
+    
+    #combine each workers files into 1 consistent one
+    commWorld.Barrier() #all workers need to finish their seg to combine into 1 file
+    if (myRank == 0):
+      iTimesStart_ranks = []; iTimesEnd_ranks = []; filesIn_ranks = []
+      for iRank in xrange(nRanks):
+        iStartRank,iEndRank = my_settings.getLimits_startStop(iStartGlobal, iEndGlobal, iWork=iRank, nWork=nRanks)
+        iTimesStart_ranks.append(iStartRank); iTimesEnd_ranks.append(iEndRank)
+        filesIn_ranks.append( my_settings.fSegFmt.format(iRank) )
+      #
+      print 'Combining parallel seg files: ', myRank, iTimesStart_ranks, iTimesEnd_ranks, filesIn_ranks  
+      segment.combineParallelFiles(my_settings.fSegFinal, iTimesStart_ranks, iTimesEnd_ranks, filesIn_ranks)
+    commWorld.Barrier() #I/O process needs to finish with serial file before we move on
+    
     if (False):
       segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
       
@@ -130,130 +151,8 @@ def demo():
       tEnd = datetime.now()
       print "Time doTracks: ", tEnd-tStart
   #time metrics ----------------------
-
-def demo_testMods():
-  #copied demo() so can muck with things w/o changing what others would run.
   
-  #setup -----------------
-  info = my_settings.info
-  filesData = my_settings.filesData
-  fMesh = my_settings.fMesh  
-  fMetr = my_settings.fMetr
-  fSeg = my_settings.fSeg
-  fCorr = my_settings.fCorr
-  fTrack = my_settings.fTrack
-  fMetrics = my_settings.fMetrics
-  
-  rEarth = my_settings.rEarth
-  dRegion = my_settings.dFilter
-  latThresh = my_settings.latThresh
-  
-  #datetime objects
-  timeStartGlobal = my_settings.timeStart
-  deltaTGlobal = my_settings.timeDelta
-  
-  #pre-process ------------------------
-  if (my_settings.doPreProc):
-    if (printTiming):
-      tStart = datetime.now()
-      
-    if (my_settings.inputType=='eraI'):
-      mesh, cell0 = preProcess.demo_eraI(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
-    elif (my_settings.inputType=='mpas'):
-      mesh, cell0 = preProcess.demo_mpas(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info)
-    elif (my_settings.inputType=='wrf_trop'):
-      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, 
-                                             my_settings.fileMap, info=info, pvIndex=3)
-    else:
-      print "Unrecognized input type in my_settings: ",my_settings.inputType
-      
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doPreProc: ", tEnd-tStart
-  else:
-    #if already processed input data
-    if (my_settings.inputType=='eraI'):
-      mesh, cell0 = preProcess.demo_eraI(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
-    elif (my_settings.inputType=='mpas'):
-      mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
-    elif (my_settings.inputType=='wrf_trop'):
-      mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, my_settings.fileMap)
-    else:
-      print "Unrecognized input type in my_settings: ",my_settings.inputType
-  
-  #segment --------------------------
-  dataMetr = netCDF4.Dataset(fMetr,'r'); 
-  nTimes = len(dataMetr.dimensions['time']); #nTimes = 5
-  if (my_settings.doSeg):
-    if (printTiming):
-      tStart = datetime.now()
-      
-    segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes)
-    if (False):
-      segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
-      
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doSeg: ", tEnd-tStart
-  dataMetr.close()
-  
-  #spatial metrics ------------------------
-  dataMetr = netCDF4.Dataset(fMetr,'r')
-  dataSeg = netCDF4.Dataset(fSeg,'r')
-  if (my_settings.doMetrics):
-    if (printTiming):
-      tStart = datetime.now()
-      
-    basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
-    
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doMetrics: ", tEnd-tStart
-  dataMetr.close()
-  dataSeg.close()
-  
-  #basinMetrics.print_metrics(fMetrics)
-  
-  #time correspondence -----------------
-  dataMetr = netCDF4.Dataset(fMetr,'r')
-  dataSeg = netCDF4.Dataset(fSeg,'r')
-  dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-  if (my_settings.doCorr):
-    if (printTiming):
-      tStart = datetime.now()
-    
-    iTimeStart = 400
-    iTimeEnd = iTimeStart+21
-    correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, iTimeStart, iTimeEnd, dataMetrics)
-    if (True):
-      correspond.plot_correspondences(my_settings.fDirSave, fCorr, iTimeEnd, mesh, iTimeStart=iTimeStart)
-      #correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
-      
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doCorr: ", tEnd-tStart
-  dataMetrics.close()
-  dataSeg.close()
-  dataMetr.close()
-  
-  #time tracks -------------------------
-  if (my_settings.doTracks):
-    if (printTiming):
-      tStart = datetime.now()
-      
-    #since appending to fTrack over time, wipe file before starting (if it exists)
-    my_settings.silentremove(fTrack)
-    #iTimeStart = 31*4; iTimeEnd = 31*4+8; timeStartGlobal = dt.datetime(2006,7,1,0)
-    #tracks.run_tracks_timeInterval(fTrack, fCorr, iTimeStart, iTimeEnd, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
-    tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-1, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
-    if (False):
-      tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
-      #tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
-      
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doTracks: ", tEnd-tStart
-  #time metrics ----------------------
+  commWorld.Free()
 
 def demo_plotTracks():
   fTrack = my_settings.fTrack
@@ -286,7 +185,7 @@ def demo_algo_plots():
     print "Unrecognized input type in my_settings: ",my_settings.inputType
   
   #segment --------------------------
-  if (False):
+  if (True):
     dataMetr = netCDF4.Dataset(fMetr,'r');
     segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
     

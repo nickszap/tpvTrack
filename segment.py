@@ -351,6 +351,7 @@ def combineParallelFiles(fOut, iTimesStart, iTimesEnd, filesIn, keys1d = ['nSite
       vals = dataIn.variables[key][:,:]
       dataOut.variables[key][iStart:iEnd+1,:] = vals[:,:]
     
+    dataIn.close()
   dataOut.close()
   
 

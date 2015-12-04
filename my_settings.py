@@ -56,7 +56,7 @@ if (True): #a quick check of specified times
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
 #fDirSave = '/data01/tracks/summer06/jun1-sep30/'
 #fDirSave = '/data01/tracks/wrf/algo/'
-fDirSave = '/data01/tracks/parallel/'
+fDirSave = '/data01/tracks/parallel/testTrack/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
 
@@ -64,17 +64,19 @@ fMesh = filesData[0]
 fMetr = fDirSave+'fields.nc'
 fSegFmt = fDirSave+'seg_{0}.nc'
 fSeg = fSegFmt.format(myRank)
-fSegFinal = fDirSave+'seg.nc' #; fSeg = fSegFinal #for plotting serially...
-fCorr = fDirSave+'correspond_horizPlusVert.nc'
-fTrack = fDirSave+'tracks_low_horizPlusVert.nc'
+fSegFinal = fDirSave+'seg.nc'; fSeg = fSegFinal #for after running seg in parallel...
+fCorr = fDirSave+'correspond_low.nc'
+fTrackFmt = fDirSave+'tracks_{0}.nc'
+fTrack = fTrackFmt.format(myRank)
+fTrackFinal = fDirSave+'tracks_low.nc'
 fMetrics = fDirSave+'metrics.nc'
 
 inputType = 'eraI'
 doPreProc = False
-doSeg = True
+doSeg = False
 doMetrics = False
 doCorr = False
-doTracks = False
+doTracks = True
 
 def silentremove(filename):
   #from http://stackoverflow.com/questions/10840533/most-pythonic-way-to-delete-a-file-which-may-not-exist

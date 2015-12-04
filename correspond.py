@@ -589,3 +589,18 @@ def get_correspondingSites(dataCorr, iTime, site):
     print site, allSites0
   iSite = np.where(allSites0==site)[0][0]
   return (corrSites[iSite], typeCorr[iSite])
+  
+def get_majorCorrespondences_iTime(dataCorr, iTime):
+  #return the 1-1 correspondences between basins at iTime and iTime+1
+  allSites0, corrSites, typeCorr = read_corr_iTime(dataCorr, iTime)
+  
+  nSites0 = len(allSites0)
+  sites0 = []; sites1 = []
+  for iSite0 in xrange(nSites0):
+    if (2 in typeCorr[iSite0]):
+      sites0.append(allSites0[iSite0])
+      sites1.append( corrSites[iSite0][typeCorr[iSite0].tolist().index(2)] )
+  
+  return (sites0,sites1)
+
+

@@ -68,7 +68,7 @@ def demo():
   
   #segment --------------------------
   dataMetr = netCDF4.Dataset(fMetr,'r'); 
-  nTimes = len(dataMetr.dimensions['time']); #nTimes = 5
+  nTimes = len(dataMetr.dimensions['time']); #nTimes = 10
   iStartGlobal=0; iEndGlobal = nTimes-1
   if (my_settings.doSeg):
     if (printTiming):
@@ -76,7 +76,7 @@ def demo():
     
     #each worker segments over time independently
     iStartRank,iEndRank = my_settings.getLimits_startStop(iStartGlobal, iEndGlobal, iWork=myRank, nWork=nRanks)  
-    #segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, iStartRank, iEndRank)
+    segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, iStartRank, iEndRank)
     
     #combine each workers files into 1 consistent one
     commWorld.Barrier() #all workers need to finish their seg to combine into 1 file
@@ -90,6 +90,7 @@ def demo():
       print 'Combining parallel seg files: ', myRank, iTimesStart_ranks, iTimesEnd_ranks, filesIn_ranks  
       segment.combineParallelFiles(my_settings.fSegFinal, iTimesStart_ranks, iTimesEnd_ranks, filesIn_ranks)
     commWorld.Barrier() #I/O process needs to finish with serial file before we move on
+    fSeg = my_settings.fSegFinal
     
     if (False):
       segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
@@ -100,40 +101,42 @@ def demo():
   dataMetr.close()
   
   #spatial metrics ------------------------
-  dataMetr = netCDF4.Dataset(fMetr,'r')
-  dataSeg = netCDF4.Dataset(fSeg,'r')
-  if (my_settings.doMetrics):
-    if (printTiming):
-      tStart = datetime.now()
+  if (myRank == 0):
+    dataMetr = netCDF4.Dataset(fMetr,'r')
+    dataSeg = netCDF4.Dataset(fSeg,'r')
+    if (my_settings.doMetrics):
+      if (printTiming):
+        tStart = datetime.now()
+        
+      basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
       
-    basinMetrics.run_metrics(fMetrics, info, mesh, dataMetr, dataSeg, 0, nTimes-1)
-    
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doMetrics: ", tEnd-tStart
-  dataMetr.close()
-  dataSeg.close()
+      if (printTiming):
+        tEnd = datetime.now()
+        print "Time doMetrics: ", tEnd-tStart
+    dataMetr.close()
+    dataSeg.close()
   
   #basinMetrics.print_metrics(fMetrics)
   
   #time correspondence -----------------
-  dataMetr = netCDF4.Dataset(fMetr,'r')
-  dataSeg = netCDF4.Dataset(fSeg,'r')
-  dataMetrics = netCDF4.Dataset(fMetrics, 'r')
-  if (my_settings.doCorr):
-    if (printTiming):
-      tStart = datetime.now()
-    
-    correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
-    if (False):
-      correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
+  if (myRank == 0):
+    dataMetr = netCDF4.Dataset(fMetr,'r')
+    dataSeg = netCDF4.Dataset(fSeg,'r')
+    dataMetrics = netCDF4.Dataset(fMetrics, 'r')
+    if (my_settings.doCorr):
+      if (printTiming):
+        tStart = datetime.now()
       
-    if (printTiming):
-      tEnd = datetime.now()
-      print "Time doCorr: ", tEnd-tStart
-  dataMetrics.close()
-  dataSeg.close()
-  dataMetr.close()
+      correspond.run_correspond(fCorr, dataMetr, dataSeg, mesh, my_settings.deltaT, my_settings.trackMinMaxBoth, my_settings.areaOverlap, 0, nTimes-1, dataMetrics)
+      if (False):
+        correspond.plot_correspondences(my_settings.fDirSave, fCorr, nTimes-1, mesh)
+        
+      if (printTiming):
+        tEnd = datetime.now()
+        print "Time doCorr: ", tEnd-tStart
+    dataMetrics.close()
+    dataSeg.close()
+    dataMetr.close()
   
   #time tracks -------------------------
   if (my_settings.doTracks):
@@ -142,7 +145,24 @@ def demo():
       
     #since appending to fTrack over time, wipe file before starting (if it exists)
     my_settings.silentremove(fTrack)
-    tracks.run_tracks_timeInterval(fTrack, fCorr, 0, nTimes-1, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics, trackOnlyMajor=True)
+    
+    nTimesTrack = nTimes-1
+    iStartRank,iEndRank = my_settings.getLimits_startStop(iStartGlobal, nTimesTrack-2, iWork=myRank, nWork=nRanks)
+    tracks.run_majorTracks_timeInterval(fTrack, fCorr, iStartRank, iEndRank, nTimesTrack, timeStartGlobal, deltaTGlobal, fMetrics=fMetrics)
+    
+    #combine each workers files into 1 consistent one
+    commWorld.Barrier() #all workers need to finish their seg to combine into 1 file
+    if (myRank == 0):
+      filesIn_ranks = []
+      for iRank in xrange(nRanks):
+        filesIn_ranks.append( my_settings.fTrackFmt.format(iRank) )
+      #
+      fOut = my_settings.fTrackFinal
+      print 'Combining parallel track files: ', myRank, fOut, filesIn_ranks
+      tracks.combineParallelFiles(fOut, filesIn_ranks)
+    commWorld.Barrier() #I/O process needs to finish with serial file before we move on
+    fTrack = my_settings.fTrackFinal
+    
     if (False):
       tracks.plot_tracks_metrics(fTrack, my_settings.fDirSave+'test_tracks.png')
       #tracks.plot_tracks_cells(fTrack, mesh, my_settings.fDirSave)
@@ -152,7 +172,7 @@ def demo():
       print "Time doTracks: ", tEnd-tStart
   #time metrics ----------------------
   
-  commWorld.Free()
+  #commWorld.Free() #Error if try this: Cannot free permanent communicator MPI_COMM_WORLD
 
 def demo_plotTracks():
   fTrack = my_settings.fTrack

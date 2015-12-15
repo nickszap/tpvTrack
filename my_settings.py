@@ -41,7 +41,8 @@ fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
 
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)
-timeStart = dt.datetime(2007,6,1,0) #time=timeStart+iTime*deltaT
+#timeStart = dt.datetime(2007,6,1,0) #time=timeStart+iTime*deltaT
+timeStart = dt.datetime(1979,1,1,0)
 timeDelta = dt.timedelta(seconds=deltaT)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
@@ -56,7 +57,8 @@ if (True): #a quick check of specified times
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
 #fDirSave = '/data01/tracks/summer06/jun1-sep30/'
 #fDirSave = '/data01/tracks/wrf/algo/'
-fDirSave = '/data01/tracks/parallel/testTrack/'
+#fDirSave = '/data01/tracks/parallel/test_algo/'
+fDirSave = '/data01/tracks/1979-2015/tracks/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
 
@@ -65,7 +67,7 @@ fMetr = fDirSave+'fields.nc'
 fSegFmt = fDirSave+'seg_{0}.nc'
 fSeg = fSegFmt.format(myRank)
 fSegFinal = fDirSave+'seg.nc'; fSeg = fSegFinal #for after running seg in parallel...
-fCorr = fDirSave+'correspond_low.nc'
+fCorr = fDirSave+'correspond_horizPlusVert.nc'
 fTrackFmt = fDirSave+'tracks_{0}.nc'
 fTrack = fTrackFmt.format(myRank)
 fTrackFinal = fDirSave+'tracks_low.nc'

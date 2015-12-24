@@ -1,5 +1,6 @@
 import numpy as np
 import netCDF4
+import matplotlib; matplotlib.use('Agg') #trying to avoid RuntimeError('Invalid DISPLAY variable')
 import matplotlib.pyplot as plt
 import datetime as dt
 
@@ -14,11 +15,10 @@ import tracks
 printTiming = True
 from datetime import datetime
 
-def demo_ensemble():
+def demo_ensemble(iMember=0):
   
   #TIGGE has all members in 1 netcdf file
-  nMembers = 50
-  for iMem in xrange(0,nMembers/2+1):
+  for iMem in [iMember]:
   #for iMem in xrange(nMembers/2,nMembers):
     #setup -----------------
     fDirSave, fMetr, fSeg, fCorr, fTrack, fMetrics = my_settings.setFilenames(my_settings,iMem)
@@ -339,10 +339,10 @@ def debug_helper():
   print mesh.isIndsInRegion(cells)
 
 if __name__=='__main__':
-  #demo_ensemble()
+  demo_ensemble(iMember=my_settings.myRank)
   #demo()
   #debug_helper()
-  demo_algo_plots()
+  #demo_algo_plots()
   #tracks.plot_tracks_metrics(my_settings.fTrack, my_settings.fDirSave+'test_tracks.png')
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')

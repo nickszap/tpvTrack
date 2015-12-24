@@ -96,7 +96,7 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
     #print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) #this doesn't account for trackOnlyMajor
     sites0 = sites0[notInPrev>0]
   
-    trackList = form_tracks_iTime(dataCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for iTimeGlobal: ", timeInd
+    trackList = form_tracks_iTime(dataCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for iTimeGlobal: ", timeInd, fNameTracks
     
     #update sitesInTrack
     for trackSeq in trackList:
@@ -186,6 +186,8 @@ def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal0, trackList, da
   data.variables['timeStamp'][iTime0] = tStart
   
   nTracks = len(trackList)
+  if (nTracks==0):
+    return iTrackGlobal0
   trackLengths = np.array([len(track) for track in trackList], dtype=int)
   maxLength = np.max(trackLengths)
   print "Maximum track length={0} at time {1}".format(maxLength, tStart)

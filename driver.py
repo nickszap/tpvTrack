@@ -140,6 +140,7 @@ def demo():
   
   #time tracks -------------------------
   if (my_settings.doTracks):
+    commWorld.Barrier() #serial metrics and correspondence need to finish files before starting tracks
     if (printTiming):
       tStart = datetime.now()
       

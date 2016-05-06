@@ -8,11 +8,11 @@ import datetime as dt
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
 dFilter = 300.e3 #radius for whether local extremum is regional extremum
-areaOverlap = .1 #fraction of tpv area overlap for determining correspondence
+areaOverlap = .01 #fraction of tpv area overlap for candidate correspondence
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
-info = '30N_eraI'
+info = '30N_eraI_2006-06-01To09-30'
 
 fDirData = '/data02/cases/summer2006/eraI/pv/'
 filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.getmtime)
@@ -36,7 +36,7 @@ if (True): #a quick check of specified times
     sys.exit()
 
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
-fDirSave = '/data01/tracks/summer06/jun1-sep30/'
+fDirSave = '/data01/tracks/summer06/closedContour/'
 #fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
@@ -50,8 +50,8 @@ fMetrics = fDirSave+'metrics.nc'
 
 inputType = 'eraI'
 doPreProc = False
-doSeg = False
-doMetrics = False
+doSeg = True
+doMetrics = True
 doCorr = True
 doTracks = True
 

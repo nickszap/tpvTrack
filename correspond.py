@@ -207,13 +207,8 @@ def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, 
       rangeTop = min(max0[iSite0],max1[iSite1]) #upper bound of overlap is smaller of the maxima
       rangeBottom = max(min0[iSite0],min1[iSite1])
       lenRange = rangeTop-rangeBottom
-      #lenPossible = max(len0[iSite0], len1[iSite1])
-      lenPossible = 0.0
-      #especially considering foothills sensitivity, really care about whether extreme depth overlaps
-      if (siteIsMin):
-        lenPossible = rangeTop- min(min0[iSite0],min1[iSite1])
-      else:
-        lenPossible = max(max0[iSite0],max1[iSite1])-rangeBottom
+      lenPossible = max(len0[iSite0], len1[iSite1])
+      
       #treat boundary case issues of no overlap
       frac = 0.0
       if (lenRange>0 and lenPossible>0):

@@ -48,196 +48,78 @@ def find_minCells_region_flat(vals, cell0, mesh):
   print "Number of local min: ", nMin
   return isMin
 
-def watershed_region(vals, cellIsMin, cell0, mesh):
-  #to make adding/deleting basins simple, follow gradient until reach a site.
-  #map every cell to follow local steepest gradient. basins go to self.
-  #filter basins so have to be a min within specified region (disk of radius dRegion)
-  #return map of cell to basin.
-  
-  '''
-  #to adapt global watershed to region, make values outside of region huge so 
-  don't steepest descend that way. since we pass in minCells, do this before call:
-  bigVal = 1.e10
-  vals = np.copy(valsIn)
-  vals[inRegion<1] = bigVal
-  '''
+def get_connectedCells_blob(cell0, isValidVal, mesh):
+  connCells = []
+  addCells = [cell0.ind]
+  while (len(addCells)>0):
+    cell0Ind = addCells.pop()
+    if (cell0Ind not in connCells):
+      connCells.append(cell0Ind)
+    
+    cell0 = cell0.new(cell0Ind)
+    nbrs = cell0.get_nbrInds()
+    nbrs = nbrs[mesh.isIndsInRegion(nbrs)*(isValidVal[nbrs]>0)]
+    for nbr in nbrs:
+      if ((nbr not in addCells) and (nbr not in connCells)):
+        addCells.append(nbr)
+  return connCells
+
+def connect_blobs(isValidVal, cell0, mesh):
+  #ID blobs by associating each blob to maximum cell index w/in blob (-1 is background).
+  #np.unique(cell2Site) will give blob inds.
   
   cell2Site = -np.ones(mesh.nCells,dtype=int) #so no cell2Site[iCell]=iCell
   
-  #get local steepest path
-  dMin = min(1.e-6,mesh.r/mesh.nCells);
   for cell in iter(cell0.copy()):
     if (not cell.isInRegion()):
       continue
-      
     iCell = cell.ind
-    if (cellIsMin[iCell]>0): #steepest path is to self
-      cell2Site[iCell]= iCell
-    else:
-      nbrs = cell.get_nbrInds()
-      nbrs = nbrs[mesh.isIndsInRegion(nbrs)]
-      
-      val0 = vals[iCell]
-      valNbrs = vals[nbrs]
-      
-      #correspondence is towards minimum gradient.
-      lat0, lon0 = mesh.get_latLon_inds(iCell)
-      latNbrs, lonNbrs = mesh.get_latLon_inds(nbrs)
-      
-      dNbrs = helpers.calc_distSphere_multiple(mesh.r, lat0, lon0, latNbrs, lonNbrs)
-      dNbrs[dNbrs<dMin]=dMin #avoid divide by 0
-      #print valNbrs, dNbrs, val0
-      valNbrs = (valNbrs-val0)/dNbrs
-      iNbr = np.argmin(valNbrs)
-      if (True):
-        if (valNbrs[iNbr]>=0):
-          print "Uhoh. Steepest descent for cell {0}->{2} is {1}, which isn't negative!".format(iCell, valNbrs[iNbr], nbrs[iNbr])
-      cell2Site[iCell] = nbrs[iNbr]
-  
-  #Filter local extrema by area to limit high (spatial) frequency "noise".
-  #An extremum must be an extremum within the filter region
-  nRedirect = 0
-  for cell in iter(cell0.copy()):
-    if (not cell.isInRegion()):
-      continue
-       
-    iCell = cell.ind
-    if (cellIsMin[iCell]>0):
-      #see if cell is min in region, not just neighbors.
-      #if not regional min, update cell2Site so local min goes to another basin
-      cellsRegion = cell.get_regionInds()
-      valsRegion = vals[cellsRegion]
-      minInd = np.argmin(valsRegion)
-      minVal = valsRegion[minInd]; minCell = cellsRegion[minInd];
-      val0 = vals[iCell]; #print val0, minVal
-      if (minVal < val0):
-        #print "Redirecting cell {0} to {1}".format(iCell, minCell)
-        cellIsMin[iCell] = 0
-        cell2Site[iCell] = minCell
-        nRedirect = nRedirect+1
-      else:
-        #cell is min, but not necessarily distinct min (ie strictly less than all other values w/in disk).
-        #here, we deal with the case where multiple cells in region all have the exact same value.
-        #3 (or nLon) neigboring mins should be 1 tpv, not 3 (physically).
-        #we'll redirect to the maximum index within disk (so all cells redirect to accepted min).
-         
-        #While unlikely for 2 general floats to be equal, this can arise from:
-        #-idealized initialization
-        #-compressed storage of variables (eg, ERA-I stores as shorts where val=short*scale+offset)
-        isDiskMin = valsRegion==minVal
-        if (np.sum(isDiskMin)>1):
-          indsOfMins = cellsRegion[isDiskMin>0]
-          minCell = np.max(indsOfMins)
-          if (iCell != minCell):
-            cellIsMin[iCell] = 0
-            cell2Site[iCell] = minCell
-            nRedirect = nRedirect+1
-  print "Number of min after redirect: ", np.sum(cellIsMin>0)
-  
-  #follow local steepest path (and any redirections from, say, regional thresholds) to site
-  for cell in iter(cell0.copy()):
-    if (not cell.isInRegion()):
-      continue
-      
-    iCell = cell.ind
-    nextCell = cell2Site[iCell]
-    nCount = 0
-    while (not cellIsMin[nextCell]>0):
-      nextCell = cell2Site[nextCell]
-      #print "Cell {0} going to {1}".format(iCell,nextCell); print vals[iCell], vals[nextCell]
-      nCount=nCount+1
-      if (nCount>mesh.nCells): #something is probably quite wrong
-        #seems to happen if values w/in a region have the exact same value. Storing values as shorts in files makes this more likely.
-        print "Uhoh, stuck in while loop for cell {0} with value {1}".format(iCell, vals[iCell])
-        nbrs = cell.get_nbrInds(); valNbrs = vals[nbrs]
-        print "Neighbor's values are: ", valNbrs
-        break
-    #end not cellIsMin
-    cell2Site[iCell] = nextCell
+    
+    if (isValidVal[iCell]>0 and cell2Site[iCell]<0): #valid and not visited
+      connCells = get_connectedCells_blob(cell.copy(), isValidVal, mesh)
+      cell2Site[connCells] = iCell
+  return cell2Site
 
-  return (cell2Site, cellIsMin)
-
-def segment_high_low_watershed_region(theta, vort, cell0, mesh):
-  #get high and low basin seeds, associate cells to both high and low basins if not extrema.
-  #to decide whether "really" part of high or low basin, we have options:
-  #-(anti-)cyclonic for (high) low...is local vorticity noisy?
-  #-closer theta value to maxima a la color scale grouping...huge min or max value now matters
-  #-whether steeper gradient is to high or low
-  #-physical distance
-  #-concavity of surface a la last closed contour
+def associateBlob_toMax(vals, cell2Site, fillVal=-1.e6):
   
-  #mins
-  print "Finding minima"
+  cell2SiteOut = np.copy(cell2Site)
+  cellIsExtr = np.zeros(len(cell2Site),dtype=int)
+  
+  blobInds = np.unique(cell2Site); blobInds = blobInds[blobInds>-1]
+  
+  for iBlob in blobInds:
+    valsInBlob = np.copy(vals)
+    valsInBlob[cell2Site!=iBlob] = fillVal
+    
+    iCell = np.argmax(valsInBlob)
+    cell2SiteOut[cell2Site==iBlob] = iCell
+    cellIsExtr[iCell] = 1
+  
+  return (cell2SiteOut, cellIsExtr)
+
+def segment_vorticityThresh(vort, vortThresh, cell0, mesh, fillVal=0.0):
+  #Make connected blobs out of \pm large vorticity
+  
+  print "Finding cyclones"
   #to adapt global watershed to region, make values outside of region huge so don't steepest descend that way
-  bigVal = 1.e10
-  vals = np.copy(theta) #so don't affect variable passed in
-  vals[np.logical_not( mesh.get_inRegion1d() )] = bigVal
+  vals = np.copy(vort) #so don't affect variable passed in
+  vals[np.logical_not( mesh.get_inRegion1d() )] = fillVal
+  #mask by terrain height
   
-  cellIsMin = find_minCells_region_flat(vals, cell0.copy(), mesh)
-  cell2SiteMin, cellIsMin = watershed_region(vals, cellIsMin, cell0.copy(), mesh)
+  cell2Site = connect_blobs(vort>vortThresh, cell0, mesh)
+  cell2SiteCyclone, isCycloneExtr = associateBlob_toMax(vort, cell2Site)
   
-  #maxs: perform min on an inverted surface
-  print "Finding maxima"
-  #adapt global watershed to region
-  vals = -np.copy(theta)
-  vals[np.logical_not( mesh.get_inRegion1d() )] = bigVal
+  print "Finding anti-cyclones"
+  cell2Site = connect_blobs(vort<-vortThresh, cell0, mesh)
+  cell2SiteAntiCyclone, isAntiCycloneExtr = associateBlob_toMax(-vort, cell2Site)
   
-  cellIsMax = find_minCells_region_flat(vals, cell0.copy(), mesh)
-  cell2SiteMax, cellIsMax = watershed_region(vals, cellIsMax, cell0.copy(), mesh)
-  
-  #"voting" procedure for low/high classification ------
-  print "Associating to max or min by local vorticity"
-  cell2Site = -np.ones(mesh.nCells, dtype=int)
-  
-  for cell in iter(cell0.copy()):
-    if (not cell.isInRegion()):
-      continue
-      
-    iCell = cell.ind
-    if (cellIsMin[iCell]>0 or cellIsMax[iCell]>0): #allows for cyclonic max. is that right?
-      cell2Site[iCell] = iCell
-    else:
-      #cyclonic ~ sign(vorticity) depends on hemisphere
-      signHem = 1 #sign function is problematic since sign(0)=0
-      lat0, lon0 = mesh.get_latLon_inds(iCell)      
-      if (lat0<0): #lat=0 gets put in NH
-        signHem = -signHem
-      
-      if (signHem*vort[iCell]<0): #anticyclonic
-        cell2Site[iCell] = cell2SiteMax[iCell]
-      else: #0 or cyclonic
-        cell2Site[iCell] = cell2SiteMin[iCell]
-  
-  #restrict basins to closed contours -------
-  print "Restricting basins to last closed contour w/in watershed"
-  
-  isBoundary = find_basinBoundaries(cell2Site, cell0.copy(), mesh)
-  for cell in iter(cell0.copy()):
-    iCell = cell.ind
-    if (cell2Site[iCell] == iCell): #loop by basin
-      theta0 = theta[iCell]
-      boundingBasin = (cell2Site==iCell)*(isBoundary)
-      thetaBoundary = theta[boundingBasin>0]
-      
-      #defining the last closed contour as smallest amplitude on boundary covers min and max.
-      #cells outside of contour are set to -1 == background
-      #minAmp = np.min( np.absolute(thetaBoundary-theta0) )
-      minAmp = np.percentile(np.absolute(thetaBoundary-theta0), 10)
-      
-      print 'theta0, thetaMinBound, thetaMaxBound, minAmp, site: ', theta0, np.min(thetaBoundary), np.max(thetaBoundary), minAmp, iCell
-      #[cell2Site[i]=-1 for i in xrange(mesh.nCells) if (cell2Site[i]==iCell and abs(theta[i]-theta0)>minAmp)] #i don't think we can set values in list comprehension
-      '''
-      for i in xrange(mesh.nCells):
-        if (cell2Site[i]==iCell and abs(theta[i]-theta0)>minAmp):
-          cell2Site[i]=-1
-      '''
-      toRemove = (cell2Site==iCell)*(np.absolute(theta-theta0)>minAmp); print 'Removed cells {0}/{1}'.format(np.sum(toRemove), np.sum(cell2Site==iCell))
-      cell2Site[toRemove>0] = -1
+  cell2Site = np.maximum(cell2SiteCyclone, cell2SiteAntiCyclone)
           
-  return (cell2Site, cellIsMin, cellIsMax)
+  return (cell2Site, isCycloneExtr, isAntiCycloneExtr)
 
-def segment(theta, vort, cell0, mesh):
-  cell2Site, cellIsMin, cellIsMax = segment_high_low_watershed_region(theta, vort, cell0, mesh)
+def segment(vort, vortThresh, cell0, mesh):
+  #cell2Site, cellIsMin, cellIsMax = segment_high_low_watershed_region(theta, vort, cell0, mesh)
+  cell2Site, cellIsMin, cellIsMax = segment_vorticityThresh(vort, vortThresh, cell0, mesh)
   sitesMin = cell2Site[cellIsMin>0]
   sitesMax = cell2Site[cellIsMax>0]
   
@@ -290,7 +172,7 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
   data.variables['nSitesMax'][iTime] = nSites
 #
 
-def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes):
+def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes, vortThresh=1.e-5):
   
   nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
   nSitesMax = 3000
@@ -299,9 +181,9 @@ def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes):
   for iTime in xrange(nTimes):
     print "Segmenting time index: ", iTime
     
-    theta = dataMetr.variables['theta'][iTime,:]
+    #theta = dataMetr.variables['theta'][iTime,:]
     vort = dataMetr.variables['vort'][iTime,:]
-    cell2Site, sitesMin, sitesMax = segment(theta, vort, cell0.copy(), mesh)
+    cell2Site, sitesMin, sitesMax = segment(vort, vortThresh, cell0.copy(), mesh)
     
     write_netcdf_iTime_seg(dataSeg, iTime, cell2Site, sitesMin, sitesMax, nSitesMax)
     
@@ -325,7 +207,7 @@ def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
   maskedVals = np.ma.array(vals, mask=np.isnan(vals))
   cmap = matplotlib.cm.jet
   cmap.set_bad('w',1.)
-  pPlot = m.pcolor(x,y,maskedVals,tri=True, shading='flat',edgecolors='none',cmap=cmap, vmin=280, vmax=360)
+  pPlot = m.pcolor(x,y,maskedVals,tri=True, shading='flat',edgecolors='none',cmap=cmap, vmin=-1.e-4, vmax=1.e-4)
   
   xMin = x[sitesMin]; yMin = y[sitesMin]; m.scatter(xMin, yMin, c='k', marker="v")
   xMax = x[sitesMax]; yMax = y[sitesMax]; m.scatter(xMax, yMax, c='w', marker="^")

@@ -178,7 +178,7 @@ class Cell(object):
   
   def __iter__(self):
     return self
-
+  
   def next(self): # Python 3: def __next__(self)
     if self.ind < self.mesh.nCells-1:
       self.ind = self.ind + 1
@@ -189,6 +189,9 @@ class Cell(object):
   
   def copy(self):
     return Cell(self.mesh, self.ind)
+  
+  def new(self, ind):
+    return Cell(self.mesh, ind)
       
   def isInRegion(self):
     return self.mesh.inRegion[self.iLat,self.iLon]>0

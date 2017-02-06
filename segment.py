@@ -325,7 +325,7 @@ def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
   maskedVals = np.ma.array(vals, mask=np.isnan(vals))
   cmap = matplotlib.cm.jet
   cmap.set_bad('w',1.)
-  pPlot = m.pcolor(x,y,maskedVals,tri=True, shading='flat',edgecolors='none',cmap=cmap, vmin=280, vmax=360)
+  pPlot = m.pcolor(x,y,maskedVals,tri=True, shading='flat',edgecolors='none',cmap=cmap, vmin=950, vmax=1050)
   
   xMin = x[sitesMin]; yMin = y[sitesMin]; m.scatter(xMin, yMin, c='k', marker="v")
   xMax = x[sitesMax]; yMax = y[sitesMax]; m.scatter(xMax, yMax, c='w', marker="^")

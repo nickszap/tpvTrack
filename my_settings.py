@@ -8,14 +8,14 @@ import datetime as dt
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
 dFilter = 300.e3 #radius for whether local extremum is regional extremum
-areaOverlap = .01 #fraction of tpv area overlap for candidate correspondence
+areaOverlap = .1 #fraction of tpv area overlap for candidate correspondence
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
-info = '30N_eraI_2006-06-01To09-30'
+info = '30N_eraI'
 
-fDirData = '/data02/cases/summer2006/eraI/pv/'
-filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.getmtime)
+fDirData = '/data01/tracks/sfcCyclone/2012-08/'
+filesData = sorted(glob.glob(fDirData+'eraI_*.nc'), key=os.path.getmtime)
 #fDirData = '/data01/tracks/summer07/eraI/'
 #filesData = sorted(glob.glob(fDirData+'ERAI*.nc'), key=os.path.getmtime)
 print filesData
@@ -23,7 +23,7 @@ fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
 
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)
-timeStart = dt.datetime(2006,6,1,0) #time=timeStart+iTime*deltaT
+timeStart = dt.datetime(2012,7,28,0) #time=timeStart+iTime*deltaT
 timeDelta = dt.timedelta(seconds=deltaT)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
@@ -36,7 +36,7 @@ if (True): #a quick check of specified times
     sys.exit()
 
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
-fDirSave = '/data01/tracks/summer06/closedContour/'
+fDirSave = fDirData
 #fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
@@ -49,7 +49,7 @@ fTrack = fDirSave+'tracks_low_horizPlusVert.nc'
 fMetrics = fDirSave+'metrics.nc'
 
 inputType = 'eraI'
-doPreProc = False
+doPreProc = True
 doSeg = True
 doMetrics = True
 doCorr = True

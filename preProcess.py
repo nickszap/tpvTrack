@@ -195,8 +195,9 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
       iTimeEnd = nTimes-1
     for iTime in xrange(iTimeStart,iTimeEnd+1):
       #read from file
-      theta = data.variables['pt'][iTime,:,:]
+      theta = data.variables['msl'][iTime,:,:]*1.e-2
       u = data.variables['u'][iTime,:,:]; v = data.variables['v'][iTime,:,:]
+      vort = data.variables['vo'][iTime,:,:]
       
       #fill in missing values w/in region
       #ERA-I doesn't appear to have any missing values...I don't know how their interpolation works.
@@ -206,7 +207,7 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
       #"The ECMWF Operational and ERA-40 datasets also provide data on a "PV=+/-2" surface on which the potential vorticity takes the value 2PVU in the northern hemisphere and -2PVU in the southern hemisphere (1PVU = 10-6 m2 s-1 K kg-1), provided such a surface can be found searching downwards from the Model level close to 96hPa. Values at this model level are used where the search is unsuccessful."
       
       #compute additional fields
-      vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)
+      #vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)
     
       #write to file
       u = helpers.flatten_2dTo1d(u, mesh.nLat, mesh.nLon)

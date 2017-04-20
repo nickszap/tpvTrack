@@ -164,7 +164,8 @@ def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
   data.createDimension('nTracks', None)
   #data.createDimension('nTimesTrack', nTimesInTrackMax+1)
   data.createDimension('nTimesTrack', None) #unlimited dimension
-  data.createDimension('nTimes', nTimes)
+  #data.createDimension('nTimes', nTimes)
+  data.createDimension('nTimes', nTimes+1) #[0:nTimesSeg-1 +1)
   
   tNow = dt.datetime.now().strftime(timeStringFormat)
   lenTime = len(tNow)
@@ -184,6 +185,9 @@ def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal0, trackList, da
   
   tStart = timeStartGlobal+deltaTGlobal*iTime0; tStart = tStart.strftime(timeStringFormat)
   data.variables['timeStamp'][iTime0] = tStart
+  #quick fix to fill in timestamp for tracks ending at last possible time
+  tNext = timeStartGlobal+deltaTGlobal*(iTime0+1); tNext = tNext.strftime(timeStringFormat)
+  data.variables['timeStamp'][iTime0+1] = tNext
   
   nTracks = len(trackList)
   if (nTracks==0):

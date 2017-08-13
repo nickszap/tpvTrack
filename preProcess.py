@@ -7,20 +7,19 @@ metr: u,v,theta,verticalVorticity,inRegion on DT
 import numpy as np
 import netCDF4
 import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap
+from mpl_toolkits.basemap import Basemap, shiftgrid
 
 import helpers
 import llMesh
-import mpasMesh
-import wrfUniformMesh as wrfMesh
+#import mpasMesh
+#import wrfUniformMesh as wrfMesh
 
-def get_missingCells_file(data):
+def get_missingCells_file(inVar):
   #if search vertical column down from top, there can be no 2pvu value if:
   #-entire column is above 2pvu: DT below sfc
   #-entire column is below 2pvu: wrong hemisphere or low pv column (tropics, anticyclonic,...)
   
-  pvInd = 1
-  isMissing = data.variables['TMP_P0_L109_GLL0'][pvInd,:,:].mask
+  isMissing = inVar.mask
   return isMissing
   
 def fill_missingVals_region(valsIn, nLat, nLon, isMissing, inRegion):
@@ -160,13 +159,21 @@ def eraTimeToCalendarTime(hrs):
   s = time.strftime('%Y-%m-%d_%H', tTuple)
   return s  
 
+  
 def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='eraI case'):
   #mesh ---------------------
-  data = netCDF4.Dataset(fMesh,'r')
+  data = netCDF4.Dataset(fMesh,'r')  
+
   d2r = np.pi/180.; 
-  lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
+  lat = data.variables['lat'][:]
+  lat = lat*d2r
+
+  lon = data.variables['lon'][:] 
+  lon = lon*d2r
+
   #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
-  lon = lon%(2.*np.pi)
+  lon = lon%(2.*np.pi)  #% is a modulus operator used to find the remainder of lon divided by 2*pi
+
   data.close()
   
   mesh = llMesh.Mesh(lat,lon, r, dRegion)
@@ -174,195 +181,70 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   mesh.fill_inDisk()
   mesh.fill_inRegion(latThresh)
   cell0 = llMesh.Cell(mesh,-1)
-  
-  #metr fields -----------------
-  nFiles = len(filesDataIn)
-  if (nFiles<1):
-    return mesh, cell0
-  
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
-  iTimeGlobal = 0
-  for iFile in xrange(nFiles):
-    fPath = filesDataIn[iFile]
-    data = netCDF4.Dataset(fPath,'r')
-    
-    #loop over individual times ------------------------------
-    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
-    #for iTime in xrange(nTimes):
-    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
-    if (iTimeEnd<0): #use all times in file
-      times = data.variables['time'][:]; nTimes = len(times);
-      iTimeEnd = nTimes-1
-    for iTime in xrange(iTimeStart,iTimeEnd+1):
-      #read from file
-      theta = data.variables['pt'][iTime,:,:]
-      u = data.variables['u'][iTime,:,:]; v = data.variables['v'][iTime,:,:]
-      
-      #fill in missing values w/in region
-      #ERA-I doesn't appear to have any missing values...I don't know how their interpolation works.
-      #Some old documentation described PP2DINT that extrapolates using constant values.
-      #This rando site: https://badc.nerc.ac.uk/data/ecmwf-op/levels.html
-      #says 
-      #"The ECMWF Operational and ERA-40 datasets also provide data on a "PV=+/-2" surface on which the potential vorticity takes the value 2PVU in the northern hemisphere and -2PVU in the southern hemisphere (1PVU = 10-6 m2 s-1 K kg-1), provided such a surface can be found searching downwards from the Model level close to 96hPa. Values at this model level are used where the search is unsuccessful."
-      
-      #compute additional fields
-      vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)
-    
-      #write to file
-      u = helpers.flatten_2dTo1d(u, mesh.nLat, mesh.nLon)
-      v = helpers.flatten_2dTo1d(v, mesh.nLat, mesh.nLon)
-      theta = helpers.flatten_2dTo1d(theta, mesh.nLat, mesh.nLon)
-      vort = helpers.flatten_2dTo1d(vort, mesh.nLat, mesh.nLon)
-      
-      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
-      iTimeGlobal = iTimeGlobal+1
-    #end iTime
-  #end iFile
-  dataOut.close()
-  
-  return mesh, cell0
 
-def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='mpas case'):
-  #mesh ---------------------
-  data = netCDF4.Dataset(fMesh,'r')
-  lat = data.variables['latCell'][:]; lon = data.variables['lonCell'][:]
-  lon = lon%(2.*np.pi) #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
-  
-  nEdgesOnCell = data.variables['nEdgesOnCell'][:];
-  cellsOnCell = data.variables['cellsOnCell'][:]-1;
-  areaCell = data.variables['areaCell'][:]
-  data.close()
-  
-  mesh = mpasMesh.Mesh(lat,lon, areaCell, cellsOnCell, nEdgesOnCell, r, dRegion)
-  mesh.fill_inRegion(latThresh)
-  cell0 = mpasMesh.Cell(mesh,-1)
   
   #metr fields -----------------
   nFiles = len(filesDataIn)
   if (nFiles<1):
     return mesh, cell0
   
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
-  iTimeGlobal = 0
-  for iFile in xrange(nFiles):
-    fPath = filesDataIn[iFile]
-    data = netCDF4.Dataset(fPath,'r')
+  data_g = netCDF4.Dataset(filesDataIn[0],'r')
+  data_u = netCDF4.Dataset(filesDataIn[1],'r')
+  data_v = netCDF4.Dataset(filesDataIn[2],'r') 
     
-    #loop over individual times ------------------------------
-    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
-    #for iTime in xrange(nTimes):
-    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
-    if (iTimeEnd<0): #use all times in file
-      nTimes = len(data.dimensions['Time'])
-      iTimeEnd = nTimes-1
-    for iTime in xrange(iTimeStart,iTimeEnd+1):
-      #read from file
-      theta = data.variables['theta_pv'][iTime,:]
-      u = data.variables['u_pv'][iTime,:]; v = data.variables['v_pv'][iTime,:]
-      vort = data.variables['vort_pv'][iTime,:]
-      
-      #fill in missing values w/in region
-      #MPAS will have surface values if whole column is above 2pvu.
-      #Unclear what to do if whole column is below 2pvu (like near equator)
-      
-      #compute additional fields
-    
-      #write to file      
-      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
-      iTimeGlobal = iTimeGlobal+1
-    #end iTime
-  #end iFile
-  dataOut.close()
+  levs = np.array(data_u.variables['lev'])
+  lev_1000 = np.where(levs==1000)[0][0]     
+  lev_500 = np.where(levs==500)[0][0] 
+  lev_700 = np.where(levs==700)[0][0]     
   
-  return mesh, cell0
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
+      
+  iTimeGlobal = 0
 
-def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, fMapProj, info='wrf case', pvIndex=3):
-  #For Steven's wrfout_trop files that have already been processed in a particular way.
-  #I think the grid is oriented such that u,v are both grid and global zonal,meridional velocities.
-  #If this isn't true, there's some figuring out to do.
+  iTimeStart = iTimeStart_fData; iTimeEnd = iTimeEnd_fData
   
-  #mesh ---------------------
-  data = netCDF4.Dataset(fMesh,'r')
-  dataProj = netCDF4.Dataset(fMapProj,'r')
-  d2r = np.pi/180.; 
-  lat = data.variables['XLAT'][0,:,:]*d2r; lon = data.variables['XLONG'][0,:,:]*d2r
-  dx = data.DX
-  dy = data.DY
-  #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
-  lon = lon%(2.*np.pi)
-  data.close()
-  
-  mesh = wrfMesh.Mesh(lat,lon, dx, dy, r, dRegion)
-  mesh.fill_inRegion(latThresh)
-  
-  mapFac = dataProj.variables['MAPFAC_M'][0,:,:]
-  #mapFac = 1.0
-  mesh.fill_cellArea(mapFac)
-  cell0 = wrfMesh.Cell(mesh,-1)
-  
-  #metr fields -----------------
-  nFiles = len(filesDataIn)
-  if (nFiles<1):
-    return mesh, cell0
-  
-  cosalpha = dataProj.variables['COSALPHA'][0,:,:]
-  sinalpha = dataProj.variables['SINALPHA'][0,:,:]
-  dataProj.close()
-  
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
-  iTimeGlobal = 0
-  for iFile in xrange(nFiles):
-    fPath = filesDataIn[iFile]
-    data = netCDF4.Dataset(fPath,'r')
+  if (iTimeEnd<0): #use all times in file
+    times = data_g.variables['time'][:]; nTimes = len(times);
+    iTimeEnd = nTimes-1  
     
-    #loop over individual times ------------------------------
-    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
-    #for iTime in xrange(nTimes):
-    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
-    if (iTimeEnd<0): #use all times in file
-      nTimes = len(data.dimensions['time']);
-      iTimeEnd = nTimes-1
-    for iTime in xrange(iTimeStart,iTimeEnd+1):
-      #read from file
-      theta = data.variables['THETA'][iTime,pvIndex,:,:]
-      u = data.variables['U'][iTime,pvIndex,:,:]
-      v = data.variables['V'][iTime,pvIndex,:,:]
-      
-      #fill in missing values w/in region
-      #apparently netCDF4 doesn't return a masked array if all masks are False
-      try:
-        print "Time {0}, number of missing values: {1}".format(iTimeGlobal, np.sum(theta.mask))
-        for var in (theta, u, v):
-          #we'll just replace missing values with global mean
-          meanVal = np.mean(var); print "Replacing values with: ",meanVal
-          var[var.mask==True] = meanVal
-        #print "Missing values still in theta? ", True in theta.mask
-        theta = theta.data;
-        u = u.data
-        v = v.data
-      except AttributeError:
-        print "Time {0}, number of missing values: {1}".format(iTimeGlobal,0)
-      
-      #compute additional fields
-      vort = calc_vorticity_wrfTrop_uniform(u, v, dx, dy, mapFac=mapFac)
-      #rotate grid-relative wind to global (apparently the stored rotation is for earth->grid)
-      uGlobal = u*cosalpha-v*sinalpha
-      vGlobal = u*sinalpha+v*cosalpha
-      u = uGlobal; v = vGlobal
-      
-      #write to file
-      u = helpers.flatten_2dTo1d(u, mesh.ny, mesh.nx)
-      v = helpers.flatten_2dTo1d(v, mesh.ny, mesh.nx)
-      theta = helpers.flatten_2dTo1d(theta, mesh.ny, mesh.nx)
-      vort = helpers.flatten_2dTo1d(vort, mesh.ny, mesh.nx)
-      
-      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
-      iTimeGlobal = iTimeGlobal+1
+  for iTime in xrange(iTimeStart,iTimeEnd+1): 
+  
+    g1000 = data_g.variables['g'][iTime,lev_1000,:,:] # 1000-hPa geopotential height
+    g500 = data_g.variables['g'][iTime,lev_500,:,:] # 500-hPa geopotential height
+
+    theta = g500-g1000 # This is really 1000-500-hPa thickness, but in order to reduce the 
+                       # need to alter the original TPV code, I will just refer to thickness as theta
+    
+    u1000 = data_u.variables['u'][iTime,lev_1000,:,:] # 1000-hPa u-wind
+    v1000 = data_v.variables['v'][iTime,lev_1000,:,:] # 1000-hPa v-wind
+
+    u500 = data_u.variables['u'][iTime,lev_500,:,:] # 500-hPa u-wind
+    v500 = data_v.variables['v'][iTime,lev_500,:,:] # 500-hPa v-wind
+
+    u700 = data_u.variables['u'][iTime,lev_700,:,:] # 700-hPa u-wind
+    v700 = data_v.variables['v'][iTime,lev_700,:,:] # 700-hPa v-wind
+
+    vort500 = calc_vertVorticity_ll(u500, v500, mesh.nLat, mesh.nLon, mesh.lat, r) # 500-hPa relative vorticity
+    vort1000 = calc_vertVorticity_ll(u1000, v1000, mesh.nLat, mesh.nLon, mesh.lat, r) #1000-hPa relative vorticity
+    
+    vort = vort500-vort1000  # 500-1000-hPa thermal vorticity
+
+    #write to file
+    u700 = helpers.flatten_2dTo1d(u700, mesh.nLat, mesh.nLon)
+    v700 = helpers.flatten_2dTo1d(v700, mesh.nLat, mesh.nLon)
+    theta = helpers.flatten_2dTo1d(theta, mesh.nLat, mesh.nLon)
+    vort = helpers.flatten_2dTo1d(vort, mesh.nLat, mesh.nLon)
+        
+    write_netcdf_iTime_metr(dataOut,iTimeGlobal,u700,v700,theta,vort)
+    iTimeGlobal = iTimeGlobal+1
+    print(iTime)
+    print("another time done preprocessing...")
     #end iTime
-  #end iFile
   dataOut.close()
   
-  return mesh, cell0  
+  return mesh, cell0    
+
+
 
 def write_netcdf_header_metr(fName, info, mesh):
   
@@ -381,14 +263,19 @@ def write_netcdf_header_metr(fName, info, mesh):
   v_data = data.createVariable('v', 'f8', ('time','nCells',))
   theta_data = data.createVariable('theta', 'f8', ('time','nCells',))
   vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
+
+  
   
   #units and descriptions
   latCell_data.units = 'radians'
   lonCell_data.units = 'radians'
   u_data.units = 'm/s'
   v_data.units = 'm/s'
-  theta_data.units = 'K'
+  theta_data.units = 'dam'
   vort_data.units = '1/s'
+  #ws_data.units = 'm/s'
+
+  
   
   #fill lat/lon
   allCells = np.arange(nCells)
@@ -398,13 +285,14 @@ def write_netcdf_header_metr(fName, info, mesh):
   
   return data
   
-def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
+def write_netcdf_iTime_metr(data, iTime,u,v,theta,vort):
   # fill file. with time as unlimited, dimension will just keep growing
   
   data.variables['u'][iTime,:] = u[:]
   data.variables['v'][iTime,:] = v[:]
   data.variables['theta'][iTime,:] = theta[:]
   data.variables['vort'][iTime,:] = vort[:]
+  
 #
 
 def plot_metr(fMetr):
@@ -436,114 +324,3 @@ if __name__ == '__main__':
   fMetr = '/data01/tracks/wrf/algo/fields_debug.nc'
   plot_metr(fMetr)
       
-# ------------------------- Untested code --------------------------------
-
-def calc_vertVorticity_wrf(U,V,MSFU,MSFV,MSFT,DX,DY,NX,NY):
-  print "Uhoh. calc_vertVorticity_wrf function is untested!!!"
-  '''
-  Adapted from DCOMPUTEABSVORT(AV,U,V,MSFU,MSFV,MSFT,COR,DX,DY,NX,NY,
-     +                           NZ,NXP1,NYP1)
-  from NCL source code (https://github.com/yyr/ncl/blob/master/ni/src/lib/nfpfort/wrf_pvo.f)
-  
-  u,v: unstaggered grid-relative winds
-  msf{u,v,t}: map-scale factors
-  d{x,y}: computational grid spacing
-  N{x,y}: # of cells in each direction
-  2D arrays are indexed on the grid (S_N=v, W_E=u)
-  
-  For a uniform grid, could just do:
-  du_dy, du_dx = np.gradient(u, dy, dx)
-  dv_dy, dv_dx = np.gradient(v, dy, dx)
-  return dv_dx-du_dy
-  '''
-  
-  #for interior cells, do finite difference between neighboring cells, e.g., (valNorth-valSouth)/2dy.
-  #to get u at midpt of horizontal cell, average left and right boundaries.
-  vort = np.empty((NX,NY),dtype=float)
-  for J in xrange(NY):
-    JP1 = min(J+1,NY-1)
-    JM1 = max(J-1,0)
-    for I in xrange(NX):
-      IP1 = min(I+1,NX-1)
-      IM1 = max(I-1,0)
-      
-      DSX = (IP1-IM1)*DX
-      DSY = (JP1-JM1)*DY
-      MM = MSFT[j,i]*MSFT[j,i]
-      
-      du_dy = .5* (U[JP1,I]/MSFU[JP1,I]+ U[JP1,I+1]/MSFU[JP1,I+1] -
-                   U[JM1,I]/MSFU[JM1,I]- U[JM1,I+1]/MSFU[JM1,I+1])/(DSY/MM)
-      #
-      dv_dx = .5*(V[J,IP1]/MSFV[J,IP1]+ V[J+1,IP1]/MSFV[J+1,IP1] -
-                  V[J,IM1]/MSFV[J,IM1]+ V[J+1,IM1]/MSFV[J+1,IM1])/(DSX/MM)
-      #
-      vort[I,J] = dv_dx-du_dy
-      
-  return vort
-  
-def demo_wrfUntested(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='wrf case'):
-  #mesh ---------------------
-  data = netCDF4.Dataset(fMesh,'r')
-  d2r = np.pi/180.; 
-  lat = data.variables['XLAT'][0,:,:]*d2r; lon = data.variables['XLONG'][0,:,:]*d2r
-  dx = data.variables['RDX'][0]; dx = 1./dx;
-  dy = data.variables['RDY'][0]; dy = 1./dy;
-  #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
-  lon = lon%(2.*np.pi)
-  data.close()
-  
-  mesh = wrfMesh.Mesh(lat,lon, r, dRegion)
-  mesh.fill_inRegion(latThresh)
-  cell0 = wrfMesh.Cell(mesh,-1)
-  
-  #metr fields -----------------
-  nFiles = len(filesDataIn)
-  if (nFiles<1):
-    return mesh, cell0
-  
-  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
-  iTimeGlobal = 0
-  for iFile in xrange(nFiles):
-    fPath = filesDataIn[iFile]
-    data = netCDF4.Dataset(fPath,'r')
-    
-    #loop over individual times ------------------------------
-    #times = data.variables['time'][:]; nTimes = len(times); nTimes = 20
-    #for iTime in xrange(nTimes):
-    iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
-    if (iTimeEnd<0): #use all times in file
-      nTimes = len(data.dimensions['Time']);
-      iTimeEnd = nTimes-1
-    for iTime in xrange(iTimeStart,iTimeEnd+1):
-      #read from file
-      theta = data.variables['pt'][iTime,:,:]
-      ug = data.variables['U'][iTime,:,:]; #south-north, west-east-stagger
-      vg = data.variables['V'][iTime,:,:]; #south-north-stagger, west-east
-      
-      mapfac = data.variables['MAPFAC_M'][iTime,:,:]
-      sinalpha = data.variables['SINALPHA'][iTime,:,:]
-      cosalpha = data.variables['COSALPHA'][iTime,:,:]
-      #fill in missing values w/in region
-      #ERA-I doesn't appear to have any missing values...I don't know how their interpolation works.
-      #Some old documentation described PP2DINT that extrapolates using constant values.
-      #This rando site: https://badc.nerc.ac.uk/data/ecmwf-op/levels.html
-      #says 
-      #"The ECMWF Operational and ERA-40 datasets also provide data on a "PV=+/-2" surface on which the potential vorticity takes the value 2PVU in the northern hemisphere and -2PVU in the southern hemisphere (1PVU = 10-6 m2 s-1 K kg-1), provided such a surface can be found searching downwards from the Model level close to 96hPa. Values at this model level are used where the search is unsuccessful."
-      
-      #compute additional fields
-      vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)
-    
-      #write to file
-      u = helpers.flatten_2dTo1d(u, mesh.nLat, mesh.nLon)
-      v = helpers.flatten_2dTo1d(v, mesh.nLat, mesh.nLon)
-      theta = helpers.flatten_2dTo1d(theta, mesh.nLat, mesh.nLon)
-      vort = helpers.flatten_2dTo1d(vort, mesh.nLat, mesh.nLon)
-      
-      write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
-      iTimeGlobal = iTimeGlobal+1
-    #end iTime
-  #end iFile
-  dataOut.close()
-  
-  return mesh, cell0  
-

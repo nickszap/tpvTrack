@@ -69,7 +69,8 @@ def demo():
     if (printTiming):
       tStart = datetime.now()
       
-    segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes)
+    #segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes)
+    segment.run_segment(fSeg, info, dataMetr, cell0.copy(), mesh, nTimes, segRestrictPerc=my_settings.segRestrictPerc)
     if (False):
       segment.run_plotBasins(my_settings.fDirSave, dataMetr, fSeg, mesh)
       

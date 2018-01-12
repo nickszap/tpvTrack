@@ -9,6 +9,7 @@ import datetime as dt
 rEarth = 6370.e3 #radius of spherical Earth (m)
 dFilter = 300.e3 #radius for whether local extremum is regional extremum
 areaOverlap = .01 #fraction of tpv area overlap for candidate correspondence
+segRestrictPerc = 10. #percentile of boundary amplitudes to restrict watershed basins [0,100]
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
@@ -49,7 +50,7 @@ fTrack = fDirSave+'tracks_low_horizPlusVert.nc'
 fMetrics = fDirSave+'metrics.nc'
 
 inputType = 'eraI'
-doPreProc = False
+doPreProc = True
 doSeg = True
 doMetrics = True
 doCorr = True

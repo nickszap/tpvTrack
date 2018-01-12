@@ -157,7 +157,7 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
 
   return (cell2Site, cellIsMin)
 
-def segment_high_low_watershed_region(theta, vort, cell0, mesh):
+def segment_high_low_watershed_region(theta, vort, cell0, mesh, segRestrictPerc):
   #get high and low basin seeds, associate cells to both high and low basins if not extrema.
   #to decide whether "really" part of high or low basin, we have options:
   #-(anti-)cyclonic for (high) low...is local vorticity noisy?
@@ -222,7 +222,7 @@ def segment_high_low_watershed_region(theta, vort, cell0, mesh):
       #defining the last closed contour as smallest amplitude on boundary covers min and max.
       #cells outside of contour are set to -1 == background
       #minAmp = np.min( np.absolute(thetaBoundary-theta0) )
-      minAmp = np.percentile(np.absolute(thetaBoundary-theta0), 10)
+      minAmp = np.percentile(np.absolute(thetaBoundary-theta0), segRestrictPerc)
       
       print 'theta0, thetaMinBound, thetaMaxBound, minAmp, site: ', theta0, np.min(thetaBoundary), np.max(thetaBoundary), minAmp, iCell
       #[cell2Site[i]=-1 for i in xrange(mesh.nCells) if (cell2Site[i]==iCell and abs(theta[i]-theta0)>minAmp)] #i don't think we can set values in list comprehension
@@ -236,8 +236,8 @@ def segment_high_low_watershed_region(theta, vort, cell0, mesh):
           
   return (cell2Site, cellIsMin, cellIsMax)
 
-def segment(theta, vort, cell0, mesh):
-  cell2Site, cellIsMin, cellIsMax = segment_high_low_watershed_region(theta, vort, cell0, mesh)
+def segment(theta, vort, cell0, mesh, segRestrictPerc):
+  cell2Site, cellIsMin, cellIsMax = segment_high_low_watershed_region(theta, vort, cell0, mesh, segRestrictPerc)
   sitesMin = cell2Site[cellIsMin>0]
   sitesMax = cell2Site[cellIsMax>0]
   
@@ -290,7 +290,7 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
   data.variables['nSitesMax'][iTime] = nSites
 #
 
-def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes):
+def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes, segRestrictPerc=5.):
   
   nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
   nSitesMax = 3000
@@ -301,7 +301,7 @@ def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes):
     
     theta = dataMetr.variables['theta'][iTime,:]
     vort = dataMetr.variables['vort'][iTime,:]
-    cell2Site, sitesMin, sitesMax = segment(theta, vort, cell0.copy(), mesh)
+    cell2Site, sitesMin, sitesMax = segment(theta, vort, cell0.copy(), mesh, segRestrictPerc)
     
     write_netcdf_iTime_seg(dataSeg, iTime, cell2Site, sitesMin, sitesMax, nSitesMax)
     

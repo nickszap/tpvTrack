@@ -3,11 +3,6 @@ tpvTrack
 
 Tracking tropopause polar vortices
 
-Use the "unified" branch
+User's guide: https://www.overleaf.com/read/kcnsvsgrrsvs  
+Paper: https://www.overleaf.com/read/hvhdjtpjtxcn
 
-Eventually, look at:   
-Guide: https://www.writelatex.com/read/wtmgyzfhfxdk  
- and 
-paper: https://www.overleaf.com/read/hvhdjtpjtxcn
-
-For a license, CRAPL?

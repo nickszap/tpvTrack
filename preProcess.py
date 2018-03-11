@@ -370,7 +370,7 @@ def demo_cesmLE(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
   d2r = np.pi/180.; 
-  lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
+  lat = data.variables['lat'][:]*d2r; lon = data.variables['lon'][:]*d2r
   #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
   lon = lon%(2.*np.pi)
   data.close()
@@ -397,7 +397,7 @@ def demo_cesmLE(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_
   data_u = netCDF4.Dataset(filesDataIn[2],'r')
   data_v = netCDF4.Dataset(filesDataIn[3],'r')
   
-  iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
+  iTimeStart = iTimeStart_fData[0]; iTimeEnd = iTimeEnd_fData[0]
   if (iTimeEnd<0): #use all times in file
     times = data_p.variables['time'][:]; nTimes = len(times);
     iTimeEnd = nTimes-1

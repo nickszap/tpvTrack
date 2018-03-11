@@ -5,11 +5,29 @@ import glob
 import os, errno
 import numpy as np
 import datetime as dt
+from mpi4py import MPI
+
+commWorld = MPI.COMM_WORLD
+myRank = commWorld.Get_rank()
+nRanks = commWorld.size
+def getLimits_startStop(iStartGlobal, iEndGlobal, iWork=myRank, nWork=nRanks):
+  #assign contiguous chunks in a sequence to processors. just leave the leftovers to the last processor(s).
+  #when the length isn't divisible by the number of workers, this isn't the best solution but we can optimize for that later.
+  
+  szChunk = int(np.ceil( (iEndGlobal-iStartGlobal)/float(nWork) )) #interval must cover length s.t. # elements for all but last worker
+  if (szChunk<1):
+    print 'Check logic in getLimits_startStop for your strange case w/ more workers than elements'
+  
+  iStart = iStartGlobal+iWork*szChunk
+  iEnd = iStart+szChunk-1
+  iEnd = min(iEndGlobal,iEnd)
+  
+  return (iStart,iEnd)
 
 rEarth = 6370.e3 #radius of spherical Earth (m)
 dFilter = 300.e3 #radius for whether local extremum is regional extremum
 areaOverlap = .01 #fraction of tpv area overlap for candidate correspondence
-segRestrictPerc = 5. #percentile of boundary amplitudes to restrict watershed basins [0,100]
+segRestrictPerc = 10. #percentile of boundary amplitudes to restrict watershed basins [0,100]
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
@@ -26,7 +44,7 @@ timeStart = dt.datetime(1990,1,1,0) #time=timeStart+iTime*deltaT
 timeDelta = dt.timedelta(seconds=deltaT)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]*4
-iTimeEnd_fData = [-1]*4
+iTimeEnd_fData = [4*7]*4 #[-1]*4
 if (True): #a quick check of specified times
   nFiles = len(filesData)
   if (len(iTimeStart_fData) != nFiles or len(iTimeEnd_fData) != nFiles):
@@ -42,9 +60,13 @@ if not os.path.exists(fDirSave):
 
 fMesh = filesData[0]  
 fMetr = fDirSave+'fields.nc'
-fSeg = fDirSave+'seg.nc'
+fSegFmt = fDirSave+'seg_{0}.nc'
+fSeg = fSegFmt.format(myRank)
+fSegFinal = fDirSave+'seg.nc'; #fSeg = fSegFinal #for after running seg in parallel...
 fCorr = fDirSave+'correspond_horizPlusVert.nc'
-fTrack = fDirSave+'tracks_low_horizPlusVert.nc'
+fTrackFmt = fDirSave+'tracks_{0}.nc'
+fTrack = fTrackFmt.format(myRank)
+fTrackFinal = fDirSave+'tracks_low.nc'
 fMetrics = fDirSave+'metrics.nc'
 
 inputType = 'cesmLE'

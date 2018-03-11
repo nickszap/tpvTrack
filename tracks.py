@@ -1,6 +1,7 @@
 #The track program creates correspondences between basins at neighboring times.
 #We want tracks that extend over the lifetime of each/all basins
 
+import os
 import numpy as np
 import netCDF4
 import matplotlib.pyplot as plt
@@ -15,96 +16,67 @@ import correspond
 
 r2d = 180./np.pi
 
-def form_track_site(dataCorr, iTimeStart, iTimeEnd, site0, trackOnlyMajor):
-  # follow a given site throughout the correspondences "tree" and split tree into individual tracks
-  
-  tracks_checkContinue = [[site0]]
+def form_majorTracks_iTimeStart(dataCorr, iTimeStart, iTimeEnd):
+  #stitch together tracks of major 1-1 correspondences for tracks starting at iTimeStart, lasting to at most iTimeEnd
   trackList = []
-  while (len(tracks_checkContinue)>0):
-    #can continue a track if: have more times AND site corresponds to future site
-    basinTrack = tracks_checkContinue.pop()
-    nTimes = len(basinTrack); site0 = basinTrack[-1]
+  
+  #start tracking only the basin's that weren't the tail of a major correspondence at the previous time
+  sitesNotStarting = []
+  if (iTimeStart>0): #all tracks start at the initial time
+    sites0, sites1 = correspond.get_majorCorrespondences_iTime(dataCorr, iTimeStart-1)
+    sitesNotStarting = sites1
+  
+  trackList_building = []
+  sites0, sites1 = correspond.get_majorCorrespondences_iTime(dataCorr, iTimeStart)
+  nSites0 = len(sites0)
+  for iSite0 in xrange(nSites0):
+    if (sites0[iSite0] not in sitesNotStarting):
+      trackList_building.append([ sites0[iSite0],sites1[iSite0] ])
+  
+  #now continue the major tracks from iTimeStart+1 for as long as they last.
+  #move from building to final trackList when track stops
+  for iTime in xrange(iTimeStart+1,iTimeEnd+1):
+    if ( len(trackList_building) == 0 ): #all tracks finished
+      break
+    sites0, sites1 = correspond.get_majorCorrespondences_iTime(dataCorr, iTime)
+    #sites0 = sites0.tolist();
     
-    iTime = iTimeStart+nTimes-1 #0-indexing for time (time0 will have 1 site, time1 will have 2 sites)
-    if (iTime>=iTimeEnd): #no more times left
-      trackList.append(basinTrack)
-      continue
+    newTrackList_building = []
+    for trackSeq in trackList_building:
+      siteInd = trackSeq[-1]
+      if (siteInd not in sites0): #track finished
+        trackList.append(trackSeq)
+      else:
+        #add continuing time's site to sequence
+        iSite = sites0.index(siteInd)
+        trackSeq.append(sites1[iSite])
+        
+        #add sequence to continue on for next time
+        newTrackList_building.append(trackSeq)
+    #use extended sequences for next time iteration
+    trackList_building = newTrackList_building
     
-    corrSites, corrTypes = correspond.get_correspondingSites(dataCorr, iTime, site0)
-    if (len(corrSites)<1): #don't connect to future site
-      trackList.append(basinTrack)
-      continue
-    
-    if (trackOnlyMajor):
-      if (2 not in corrTypes):
-        #don't connect to future site
-        trackList.append(basinTrack)
-        continue
-      
-    #if here, site0 connects to >=1 future sites so can continue track
-    nSites1 = len(corrSites)
-    for iSite1 in xrange(nSites1):
-      if (trackOnlyMajor):
-        #only consider branches that are major correspondences
-        if (corrTypes[iSite1]<2):
-          continue
-      
-      #continue by duplicating the entire previous track
-      site1 = corrSites[iSite1]
-      tracks_checkContinue.append(basinTrack+[site1])
+  #copy tracks that lasted entire period
+  for t in trackList_building: #does nothing if empty
+    trackList.append(t)
     
   return trackList
+
+def run_majorTracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, nTimesGlobal, timeStartGlobal, deltaTGlobal, fMetrics=''):
+  #written s.t. major tracks can be stitched together in parallel over time.
+  #For inputs,
+  # iTimeStart: first time index tracks can start
+  # iTimeEnd: last time index tracks can start
+  # nTimesGlobal: # times possible in longest track (1 less than # of segmentation times)
   
-def form_tracks_iTime(dataCorr, iTimeStart, iTimeEnd, sites0, trackOnlyMajor):
-  trackList = []
-  for site in sites0:
-    #print "Forming tracks from correspondences for initial site {0} at time {1}".format(site, iTimeStart)
-    siteTracks = form_track_site(dataCorr, iTimeStart, iTimeEnd, site, trackOnlyMajor)
-    for t in siteTracks:
-      if (len(t)>1): #drop the noise/artifacts
-        trackList.append(t)
-    
-  return trackList
   
-def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartGlobal, deltaTGlobal, fMetrics='', trackOnlyMajor=False):
-  #find tracks for sites at [iTimeStart,iTimeEnd) out to iTimeEnd (at most).
-  #besides stitching the correspondences together, the tricky part is that we don't want to start a track
-  #for a basin at each timestep...only start a track at "genesis".
-  #define genesis as:
-  #-basin not part of an existing track at that time
-  
-  #store the basins that are part of tracks at each time
-  nTimes = iTimeEnd-iTimeStart
-  sitesInTrack = [[] for i in xrange(nTimes+1)] #need +1 since storing iTimeStart basins as well
-  
-  dataTracks = write_tracks_metrics_netcdf_header(fNameTracks, 'test', nTimes, nTimes); iTrackGlobal=0
+  dataTracks = write_tracks_metrics_netcdf_header(fNameTracks, 'test', None, nTimesGlobal, timeStartGlobal, deltaTGlobal); iTrackGlobal=0
   dataCorr = netCDF4.Dataset(fCorr, 'r')
   
-  for iTime in xrange(nTimes):
-    timeInd = iTime+iTimeStart
-    sites0, corrSites, typeCorr = correspond.read_corr_iTime(dataCorr, timeInd)
+  for timeInd in xrange(iTimeStart,iTimeEnd+1):
+    trackList = form_majorTracks_iTimeStart(dataCorr, timeInd, nTimesGlobal-1); print "Formed tracks for iTimeGlobal: ", timeInd
+    #print trackList
     
-    #ignore sites already trajectoried in an existing track
-    nSites0 = len(sites0)
-    notInPrev = np.ones(nSites0,dtype=int)
-    
-    for iSite in xrange(nSites0):
-      site0 = sites0[iSite]
-      if (site0 in sitesInTrack[iTime]):
-        notInPrev[iSite] = 0
-
-    #print "{0}/{1} sites started at time {2}".format(np.sum(notInPrev>0), nSites0, timeInd) #this doesn't account for trackOnlyMajor
-    sites0 = sites0[notInPrev>0]
-  
-    trackList = form_tracks_iTime(dataCorr, timeInd, iTimeEnd, sites0,trackOnlyMajor); print "Formed tracks for iTimeGlobal: ", timeInd
-    
-    #update sitesInTrack
-    for trackSeq in trackList:
-      for i in xrange(len(trackSeq)):
-        #basin in trackSeq[i] is at index i [iTimeStart,iTimeEnd]
-        sitesInTrack[iTime+i].append(trackSeq[i])
-    #print sitesInTrack
-        
     #write to file
     if (fMetrics==''):
       write_tracks_cells(fNameTracks, trackList)
@@ -112,12 +84,12 @@ def run_tracks_timeInterval(fNameTracks, fCorr, iTimeStart, iTimeEnd, timeStartG
       dataMetrics = netCDF4.Dataset(fMetrics,'r')
       
       #write_tracks_metrics_iTime(fNameTracks, timeInd, trackList, dataMetrics, timeStartGlobal, deltaTGlobal)
-      iTrackGlobal = write_tracks_metrics_iTime_netcdf(dataTracks, timeInd, iTrackGlobal, trackList, dataMetrics, timeStartGlobal, deltaTGlobal)
+      iTrackGlobal = write_tracks_metrics_iTime_netcdf(dataTracks, timeInd, iTrackGlobal, trackList, dataMetrics)
       
       dataMetrics.close()
   
   dataCorr.close()
-  dataTracks.close()    
+  dataTracks.close()
   
 def write_tracks_cells(fNameTracks, trackList):
   print "Appending to file: "+fNameTracks
@@ -138,7 +110,7 @@ def read_tracks_cells(fNameTracks):
   return trackList
 
 timeStringFormat = "%Y-%m-%d-%H"
-def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
+def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes, timeStartGlobal, deltaTGlobal):
   '''
   For inputs,
   nTimesInTrackMax: maximum length of track
@@ -162,10 +134,9 @@ def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
   
   # dimensions
   data.createDimension('nTracks', None)
-  #data.createDimension('nTimesTrack', nTimesInTrackMax+1)
-  data.createDimension('nTimesTrack', None) #unlimited dimension
-  #data.createDimension('nTimes', nTimes)
-  data.createDimension('nTimes', nTimes+1) #[0:nTimesSeg-1 +1)
+  data.createDimension('nTimesTrack', nTimesInTrackMax)
+  #data.createDimension('nTimesTrack', None) #unlimited dimension
+  data.createDimension('nTimes', nTimes)
   
   tNow = dt.datetime.now().strftime(timeStringFormat)
   lenTime = len(tNow)
@@ -179,22 +150,23 @@ def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
   
   for key in basinMetrics.metricKeys:
     data.createVariable(key, 'f8', ('nTracks','nTimesTrack',))
+  
+  for iTime0 in xrange(nTimes):
+    tStart = timeStartGlobal+deltaTGlobal*iTime0; tStart = tStart.strftime(timeStringFormat)
+    data.variables['timeStamp'][iTime0] = tStart
+  
   return data
 
-def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal0, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
-  
-  tStart = timeStartGlobal+deltaTGlobal*iTime0; tStart = tStart.strftime(timeStringFormat)
-  data.variables['timeStamp'][iTime0] = tStart
-  #quick fix to fill in timestamp for tracks ending at last possible time
-  tNext = timeStartGlobal+deltaTGlobal*(iTime0+1); tNext = tNext.strftime(timeStringFormat)
-  data.variables['timeStamp'][iTime0+1] = tNext
+def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal0, trackList, dataMetrics):
   
   nTracks = len(trackList)
-  if (nTracks==0):
-    return iTrackGlobal0
+  if (nTracks == 0): #no tracks started at this time -> nothing to write so leave
+    iTrackGlobal = iTrackGlobal0+nTracks
+    return iTrackGlobal
   trackLengths = np.array([len(track) for track in trackList], dtype=int)
   maxLength = np.max(trackLengths)
-  print "Maximum track length={0} at time {1}".format(maxLength, tStart)
+  #print "Maximum track length={0} at time {1}".format(maxLength, iTrackGlobal)
+  print "Maximum track length={0} at time {1}".format(maxLength, data.variables['timeStamp'][iTime0])
   
   data.variables['lenTrack'][iTrackGlobal0:iTrackGlobal0+nTracks] = trackLengths[:]
   data.variables['iTimeStart'][iTrackGlobal0:iTrackGlobal0+nTracks] = iTime0
@@ -478,3 +450,122 @@ def colorline(x, y, z=None, cmap=plt.get_cmap('Blues_r'), norm=plt.Normalize(0.0
     ax.add_collection(lc)
     
     return lc
+    
+def combineParallelFiles_old(fOut, filesIn, 
+                          keys1d = ['iTimeStart','lenTrack'], 
+                          keys2d=['siteExtr', 'circ', 'vortMean', 'ampMaxMin', 'rEquiv', 'thetaVol', 'ampMean', 'thetaExtr', 'latExtr', 'lonExtr']):
+  #put all the tracks starting in contiguous chunks of times from the separate workers together into 1 file
+  #'timeStamp' is correct for the global file in all workers' files.
+  
+  #rather than remake the header of a netcdf file, append to a copy of one of the existing
+  cmd = 'cp {0} {1}'.format(filesIn[0], fOut)
+  print cmd; os.system(cmd)
+  
+  dataOut = netCDF4.Dataset(fOut,'a')
+  nFilesIn = len(filesIn)
+  iTrackGlobal = 0
+  for iFile in xrange(nFilesIn):
+    fIn = filesIn[iFile]; print 'On file ', fIn
+    dataIn = netCDF4.Dataset(fIn,'r')
+    nTracks = len(dataIn.dimensions['nTracks'])
+    if (False): #if memory is enough
+      for key in keys1d:
+        vals = dataIn.variables[key][:]
+        dataOut.variables[key][iTrackGlobal:iTrackGlobal+nTracks] = vals[:]
+      for key in keys2d:
+        vals = dataIn.variables[key][:,:]
+        dataOut.variables[key][iTrackGlobal:iTrackGlobal+nTracks,:] = vals[:,:]
+    else: #stride through tracks
+      for key in keys1d:
+        print key
+        for iTrack in xrange(nTracks):
+          vals = dataIn.variables[key][iTrack]
+          dataOut.variables[key][iTrackGlobal+iTrack] = vals
+      for key in keys2d:
+        print key
+        for iTrack in xrange(nTracks):
+          vals = dataIn.variables[key][iTrack,:]; nVals = len(vals)
+          dataOut.variables[key][iTrackGlobal+iTrack,0:nVals] = vals[:]
+        
+    dataIn.close()
+    iTrackGlobal = iTrackGlobal + nTracks
+    
+  dataOut.close()
+
+def combineParallelFiles(fOut, filesIn, 
+                          keys1d = ['iTimeStart','lenTrack'], 
+                          keys2d=['siteExtr', 'circ', 'vortMean', 'ampMaxMin', 'rEquiv', 'thetaVol', 'ampMean', 'thetaExtr', 'latExtr', 'lonExtr']):
+  #put all the tracks starting in contiguous chunks of times from the separate workers together into 1 file.
+  #'timeStamp' is correct for the global file in all workers' files.
+  #the old way was from the seg.nc copy, but having >1 record dimension looks to make the file very large, with duplicate dimension names,... very strange.
+  #we'll fix the nTimesTrack dimension here.
+  
+  #rather than remake the header of a netcdf file, append to a copy of one of the existing
+  #iTrack unlimited, but need max(nTimesTrack) and nTimes (will overwrite timeStamp with valid value from file)
+  data = netCDF4.Dataset(filesIn[0],'r')
+  nTimes = len(data.dimensions['nTimes'])
+  timeStamps = data.variables['timeStamp'][:]
+  data.close()
+  timeStartGlobal = dt.datetime(1979,1,1,0)
+  deltaTGlobal = dt.timedelta(seconds=6*60*60)
+  
+  nTimesInTrackMax = 0
+  for f in filesIn:
+    data = netCDF4.Dataset(f,'r')
+    nTimesInTrackMax = max(nTimesInTrackMax, len(data.dimensions['nTimesTrack']) )
+    data.close()
+  
+  dataOut = write_tracks_metrics_netcdf_header(fOut, 'combined parallel files: '+str(filesIn), nTimesInTrackMax, nTimes, timeStartGlobal, deltaTGlobal)
+  dataOut.variables['timeStamp'][:] = timeStamps[:]
+  
+  nFilesIn = len(filesIn)
+  iTrackGlobal = 0
+  for iFile in xrange(nFilesIn):
+    fIn = filesIn[iFile]; print 'On file ', fIn
+    dataIn = netCDF4.Dataset(fIn,'r')
+    nTimesTrackFile = len(dataIn.dimensions['nTimesTrack'])
+    nTracks = len(dataIn.dimensions['nTracks'])
+    if (False): #if memory is enough
+      for key in keys1d:
+        vals = dataIn.variables[key][:]
+        dataOut.variables[key][iTrackGlobal:iTrackGlobal+nTracks] = vals[:]
+      for key in keys2d:
+        vals = dataIn.variables[key][:,:]
+        dataOut.variables[key][iTrackGlobal:iTrackGlobal+nTracks,0:nTimesTrackFile] = vals[:,:]
+    else: #stride through tracks
+      strideLen = 500; strideIntervals = np.arange(0,nTracks, strideLen);
+      if (nTracks-1 not in strideIntervals):
+        strideIntervals = np.append(strideIntervals,nTracks-1)
+      nIntervals = len(strideIntervals)-1
+        
+      for key in keys1d:
+        print key
+        for iInterval in xrange(nIntervals):
+          iTrackStart = strideIntervals[iInterval]; iTrackStop = strideIntervals[iInterval+1]+1 #we'll repeat the endpts to make sure last track is included
+          vals = dataIn.variables[key][iTrackStart:iTrackStop]
+          dataOut.variables[key][iTrackGlobal+iTrackStart:iTrackGlobal+iTrackStop] = vals[:]
+      for key in keys2d:
+        print key
+        for iInterval in xrange(nIntervals):
+          iTrackStart = strideIntervals[iInterval]; iTrackStop = strideIntervals[iInterval+1]+1 #we'll repeat the endpts to make sure last track is included
+          vals = dataIn.variables[key][iTrackStart:iTrackStop,:]
+          dataOut.variables[key][iTrackGlobal+iTrackStart:iTrackGlobal+iTrackStop,0:nTimesTrackFile] = vals[:,:]
+                  
+    dataIn.close()
+    iTrackGlobal = iTrackGlobal + nTracks
+    
+  dataOut.close()
+
+def run_combineFiles_postRun():
+  #run function that combines individual processor tracks files after tracking has run
+  
+  fDir = '/data01/tracks/1979-2015/tracks/'
+  filesIn = [fDir+'tracks_1.nc', fDir+'tracks_0.nc', fDir+'tracks_2.nc', fDir+'tracks_3.nc'] #could be glob.glob
+  fOut = fDir+'tracks_low.nc'
+  
+  combineParallelFiles(fOut, filesIn)
+
+if __name__=='__main__':
+  run_combineFiles_postRun()
+
+

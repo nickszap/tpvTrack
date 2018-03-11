@@ -3,6 +3,7 @@ import netCDF4
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
+import os
 
 import helpers
 
@@ -290,20 +291,23 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
   data.variables['nSitesMax'][iTime] = nSites
 #
 
-def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes, segRestrictPerc=5.):
+def run_segment(fSeg, info, dataMetr, cell0, mesh, iTimeStart, iTimeStop, segRestrictPerc=5.):
   
-  nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
+  #nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
   nSitesMax = 3000
   dataSeg = write_netcdf_header_seg(fSeg, info, mesh.nCells, nSitesMax)
   
-  for iTime in xrange(nTimes):
+  #for iTime in xrange(nTimes):
+  iTimeFile = 0
+  for iTime in xrange(iTimeStart,iTimeStop+1):
     print "Segmenting time index: ", iTime
     
     theta = dataMetr.variables['theta'][iTime,:]
     vort = dataMetr.variables['vort'][iTime,:]
     cell2Site, sitesMin, sitesMax = segment(theta, vort, cell0.copy(), mesh, segRestrictPerc)
     
-    write_netcdf_iTime_seg(dataSeg, iTime, cell2Site, sitesMin, sitesMax, nSitesMax)
+    write_netcdf_iTime_seg(dataSeg, iTimeFile, cell2Site, sitesMin, sitesMax, nSitesMax)
+    iTimeFile += 1
     
   dataSeg.close()
 
@@ -364,4 +368,27 @@ def run_plotBasins(fDirSave, dataMetr, fSeg, mesh):
     plot_basins_save(fSave, lat, lon, vals, sitesMin, sitesMax)
   
   dataSeg.close()
+
+def combineParallelFiles(fOut, iTimesStart, iTimesEnd, filesIn, keys1d = ['nSitesMin','nSitesMax'], keys2d=['cell2Site','sitesMin','sitesMax']):
+  #stitch the contiguous chunks of times from the separate workers together into 1 file
+  
+  #rather than remake the header of a netcdf file, append to a copy of one of the existing
+  cmd = 'cp {0} {1}'.format(filesIn[0], fOut)
+  print cmd; os.system(cmd)
+  
+  dataOut = netCDF4.Dataset(fOut,'a')
+  nFilesIn = len(filesIn)
+  #I'm not sure if it's better to do the following by reading xor writing contiguously...???
+  for iFile in xrange(nFilesIn):
+    fIn = filesIn[iFile]; iStart = iTimesStart[iFile]; iEnd = iTimesEnd[iFile]
+    dataIn = netCDF4.Dataset(fIn,'r')
+    for key in keys1d:
+      vals = dataIn.variables[key][:]
+      dataOut.variables[key][iStart:iEnd+1] = vals[:]
+    for key in keys2d:
+      vals = dataIn.variables[key][:,:]
+      dataOut.variables[key][iStart:iEnd+1,:] = vals[:,:]
+    dataIn.close()
+  dataOut.close()
+
 

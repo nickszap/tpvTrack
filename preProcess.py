@@ -364,6 +364,69 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   
   return mesh, cell0  
 
+def demo_cesmLE(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='cesmLE case',iLev=15):
+  #filesDataIn = [] or [TROP_P, TROP_T, U, V]
+  
+  #mesh ---------------------
+  data = netCDF4.Dataset(fMesh,'r')
+  d2r = np.pi/180.; 
+  lat = data.variables['latitude'][:]*d2r; lon = data.variables['longitude'][:]*d2r
+  #want latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
+  lon = lon%(2.*np.pi)
+  data.close()
+  
+  #CESM-LE latitudes go South-> North. To match ERA-I, make N->S
+  lat = lat[::-1]
+  
+  mesh = llMesh.Mesh(lat,lon, r, dRegion)
+  #mesh.fill_latCellArea()
+  mesh.fill_inDisk()
+  mesh.fill_inRegion(latThresh)
+  cell0 = llMesh.Cell(mesh,-1)
+  
+  #metr fields -----------------
+  nFiles = len(filesDataIn)
+  if (nFiles<1):
+    return mesh, cell0
+  
+  dataOut = write_netcdf_header_metr(fNameOut, info, mesh)
+  iTimeGlobal = 0
+  
+  data_p = netCDF4.Dataset(filesDataIn[0],'r')
+  data_t = netCDF4.Dataset(filesDataIn[1],'r')
+  data_u = netCDF4.Dataset(filesDataIn[2],'r')
+  data_v = netCDF4.Dataset(filesDataIn[3],'r')
+  
+  iTimeStart = iTimeStart_fData[iFile]; iTimeEnd = iTimeEnd_fData[iFile]
+  if (iTimeEnd<0): #use all times in file
+    times = data_p.variables['time'][:]; nTimes = len(times);
+    iTimeEnd = nTimes-1
+  for iTime in xrange(iTimeStart,iTimeEnd+1):
+    #read from file
+    p = data_p.variables['TROP_P'][iTime,:,:]; #Pa
+    t = data_t.variables['TROP_T'][iTime,:,:]; #K
+    p = p[::-1,:]; t = t[::-1,:]
+    theta = calc_potentialTemperature(t, p)
+    u = data_u.variables['U'][iTime,iLev,:,:]; v = data_v.variables['V'][iTime,iLev,:,:] #m/s
+    u = u[::-1,:]; v = v[::-1,:]
+  
+    #compute additional fields
+    vort = calc_vertVorticity_ll(u, v, mesh.nLat, mesh.nLon, mesh.lat, r)
+  
+    #write to file
+    u = helpers.flatten_2dTo1d(u, mesh.nLat, mesh.nLon)
+    v = helpers.flatten_2dTo1d(v, mesh.nLat, mesh.nLon)
+    theta = helpers.flatten_2dTo1d(theta, mesh.nLat, mesh.nLon)
+    vort = helpers.flatten_2dTo1d(vort, mesh.nLat, mesh.nLon)
+    
+    write_netcdf_iTime_metr(dataOut, iTimeGlobal, u,v,theta,vort)
+    iTimeGlobal = iTimeGlobal+1
+    #end iTime
+  #end iFile
+  dataOut.close()
+  
+  return mesh, cell0
+
 def write_netcdf_header_metr(fName, info, mesh):
   
   data = netCDF4.Dataset(fName, 'w', format='NETCDF4')

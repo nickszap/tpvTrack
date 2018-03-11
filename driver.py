@@ -45,6 +45,8 @@ def demo():
     elif (my_settings.inputType=='wrf_trop'):
       mesh, cell0 = preProcess.demo_wrf_trop(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, 
                                              my_settings.fileMap, info=info, pvIndex=3)
+    elif (my_settings.inputType=='cesmLE'):
+      mesh, cell0 = preProcess.demo_cesmLE(fMesh, filesData, fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, info=info, iLev=15)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
       
@@ -59,6 +61,8 @@ def demo():
       mesh, cell0 = preProcess.demo_mpas(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
     elif (my_settings.inputType=='wrf_trop'):
       mesh, cell0 = preProcess.demo_wrf_trop(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData, my_settings.fileMap)
+    elif (my_settings.inputType=='cesmLE'):
+      mesh, cell0 = preProcess.demo_cesmLE(fMesh, [], fMetr, rEarth, dRegion, latThresh, my_settings.iTimeStart_fData, my_settings.iTimeEnd_fData)
     else:
       print "Unrecognized input type in my_settings: ",my_settings.inputType
   

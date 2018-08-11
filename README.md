@@ -3,8 +3,8 @@ tpvTrack
 
 Tracking tropopause polar vortices
 
-User's guide: https://www.overleaf.com/read/kcnsvsgrrsvs  
-Paper: https://www.overleaf.com/read/hvhdjtpjtxcn
+A User's guide is available under ./docs/  
+Paper: https://www.overleaf.com/read/gyyjwfybqryq (eventually GMD link)    
 
 This file is part of tpvTrack.
 

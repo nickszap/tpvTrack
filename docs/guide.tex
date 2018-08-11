@@ -1,0 +1,97 @@
+\documentclass[a4paper]{article}
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{hyperref}
+\usepackage{fullpage}
+
+\title{Quick Guide to TPV Tracker}
+
+\author{Nick Szapiro}
+
+\date{August 2018}
+
+\begin{document}
+\maketitle
+
+\section{Version}
+The default is the ``unified" branch. Other branches provide additional modifications (e.g., parallelization, modifications for cold pools, etc.). Parallel versions (e.g., branch vMPI) have been used for several applications, including tracking over historical reanalysis, climate simulations, and operational ensembles.
+
+\section{Python setup}
+TPVTrack is written in Python as it is portable, friendly to write/read, and broadly used across atmospheric science.
+Written in Python 2.7, the necessary libraries are NumPy and netCDF4, with optional MPI for Python (for parallel version) and Matplotlib and Basemap (for post-processing).
+
+\section{Overview}
+Running [python driver.py] on the command line calls driver.py:demo(), which uses the user-provided information in my\_settings.py to pre-process meteorological data into the TPVTrack fomat, segment the continuous surface into discrete objects of restricted (anti-)cyclonic watershed basins, describe the basins by geometric metrics, associate basins over time by overlap similarity into major and minor correspondences, and track TPVs along major correspondences. It's sequential (e.g., have to run the segmentation before calculating metrics). While reading the source code is more comprehensive, the main modules are:
+
+\paragraph{my\_settings} User-defined configuration with inclued comments. Make sure to change the doPreproc, doSeg,\dots to True to run what you want and then False for any re-runs (to reduce subsequent runtime).
+
+\paragraph{preProcess} Take whatever input dataset(s) the user has and (1) generate the underlying Cell and Mesh objects and (2) write the meteorological variables on the horizontal tracking surface (horizontal wind, vorticity, and potential temperature) to file.
+
+For input data from a different source, the user will need to implement Mesh and Cell classes utilizing 1D indexing.
+
+\paragraph{segment} A watershed approach where regions are grouped by local gradients around regional extremum. We segment a surface into highs and lows by mapping each cell to its high xor low basin by the sign of its local relative vorticity. Not every resulting basin is in a TPV.
+
+\paragraph{basinMetrics} Given TPVs as basins, we can quantify properties like circulation, amplitude, area, moment of inertia,\dots using the basins as masks for geometric and meteorological fields.
+
+\paragraph{correspondence} Candidate correspondences are formed by ``horizontal" overlap, and similarity is measured by combining ``horizontal" and ``vertical" overlap. The type of correspondence is then classified; a major connection is a 1-1 correspondence between TPV A at time $t_0$ and TPV B at time $t_0+\Delta t$ if both (1) B is the most similar connection to A at time $t0+\Delta t$ and (2) A is the most similar connection to B at time $t_0$. Then, a TPV splitting event is characterized by major and minor pieces. Setting trackMinMax to track min xor max is reasonable, but not both together as then minima could correspond to maxima.
+
+\paragraph{tracks} Tracks are formed by stitching together major correspondences over time. Genesis and lifetime criteria are used to define TPVs from tracks (e.g, a lifetime of at least 2~days and 60\% of life north of $65^{\circ}$~N).
+
+\section{my\_settings.py}
+\begin{itemize}
+\item rEarth Radius of the Earth (m)
+\item dFilter Filter radius for whether a local extremum is a regional extremum (m)
+\item areaOverlap Minimum fraction of horizontal overlap that qualifies as overlapping TPVs (typically 0.1 or smaller)
+\item segRestrictPerc Percentile of boundary amplitudes for restriction of watershed basins ([0,100])
+\item latThresh Segment polewards of specified latitude (e.g., $30^{\circ}$~N)
+\item trackMinMaxBoth Track cyclones (0) or anticyclones (1)
+\item info Additional information added to metadata in NetCDF file
+\item filesData Meteorological input data ($\geq 1$ file path)
+\item fileMap Only needed for WRF input data, NetCDF file with map projection information
+\item deltaT Timestep of input data (s)
+\item timeStart Start date of tracking (datetime.datetime)
+\item iTimeStart\_fData Starting time index in each input file (0-based indexing)
+\item iTimeEnd\_fData Ending time index in each input file (can use -1 for last time in file)
+\item fDirSave Directory to save output files
+\item fMesh Input NetCDF file with mesh information
+\item fMetr Output meteorological data in TPVTrack format (1-D flat arrays)
+\item fSeg Output segmentation file
+\item fMetrics Output metrics file
+\item fCorr Output correspondence file
+\item fTrack Output track file
+\item inputType Type of input data (eraI, mpas, wrf,...)
+\item doXXX True/False to run module (set to False if re-running and already have previous module output)
+\end{itemize}
+
+\section{Example ERA-Interim test case}
+Using the default unified source code branch,
+\begin{itemize}
+\item Create a directory for the case, e.g., fDir = /home/user/test-tpvTrack/ . cd into fDir.
+\item Download ERA-I u, v, potential temperature for your time period 6-hourly (\url{http://apps.ecmwf.int/datasets/data/interim-full-daily/levtype=pv/}). A small example file is included \begin{verbatim} tpvTrack/example_eraI/ERAI_tpvTracker_2006-08-01To2006-08-04.nc \end{verbatim}
+\item git clone \url{https://github.com/nickszap/tpvTrack.git}
+\item In preProcess.py, set (1) fDirData=fDir, (2) \begin{verbatim}filesData=['/home/user/test-tpvTrack/example_eraI/ERAI_tpvTracker_2006-08-01To2006-08-04.nc']\end{verbatim} or to your own file, (3) timeStart= dt.datetime(2006,8,1,0) or your own date, (4) fDirSave=fDir
+\item Run \emph{python driver.py}
+\item At the bottom of driver.py, comment \#demo(). Uncomment demo\_algo\_plots(). Run \emph{python driver.py}. Compare images to tropopause maps for consistency.
+
+\end{itemize}
+
+\section{Further details for limited area WRF}
+\begin{itemize}
+\item Interpolation to 2~PVU by searching down a column may find layers well into the stratosphere or not find a tropopause above the surface. This problem is more common for higher resolution simulations. If the recommended seeded flood-fill tropopause diagnostic is not used, several alternatives are possible. Iterative extrapolation from valid neighbors is one option. If the domain is limited in latitude, it may be reasonable to fill missing values of u,v,theta on 2~PVU with the domain mean. More appropriate probably would be to grab data from a different model output level.
+\item Advection is used to test whether TPVs at consecutive times overlap and can correspond. For limited area grids, points can advect outside the domain. We could either have some larger, enclosing domain. OR, we want to just ignore those points. Currently, any advected point whose closest cell is on the boundary of the domain is dropped. If a point is actually within the domain but closest to a boundary cell, it gets dropped too. Not optimal, but I didn't think of a simple way to test whether a point is in the bounds of a general WRF domain.
+\end{itemize}
+
+\section{Future to-do list}
+Things to consider implementing:
+\begin{itemize}
+\item Acceleration: looping over cells in a mesh, looping over basins, segmenting various times,... are all pretty embarrassingly parallel
+\item Additional basin metrics
+\item Track metrics
+\item Track polewards of an identified jet stream or isentrope (rather than latitude)
+\end{itemize}
+
+\end{document}

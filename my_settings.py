@@ -13,33 +13,32 @@ segRestrictPerc = 10. #percentile of boundary amplitudes to restrict watershed b
 
 latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
-info = '30N_eraI_2006-06-01To09-30'
 
-# set the working directory of the data
+#netcdf files will have this as a global attribute, and some figures will carry this name
+#info = '30N_eraI_2006-06-01To09-30'
+info = 'demo_eraI_data_2006-08-01To08-04'
+
+#set the working directory of the data
 #fDirData = '/data02/cases/summer2006/eraI/pv/'
 #fDirData = '/data01/tracks/summer07/eraI/'
 fDirData = './example_eraI/'
 
-# enter an explicit list of files or allow the glob.glob function to pick them out for you
+#enter an explicit list of files or allow the glob.glob function to pick them out for you
 #filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.ge    tmtime)
 filesData = sorted(glob.glob(fDirData+'ERAI*.nc'), key=os.path.getmtime)
 print filesData
 
-# set the start date/time
+#set the start date/time
 timeStart = dt.datetime(2006,8,1,0)
 
-# set directory to save files
+#set directory to save files
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
 #fDirSave = '/data01/tracks/summer06/closedContour/'
 #fDirSave = '/data01/tracks/wrf/algo/'
 fDirSave = './test-tpvTrack/'
 
-# for inputType=wrf_trop
-fileMap = fDirData+'wrfout_mapProj.nc'
-
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)
-timeStart = dt.datetime(2006,6,1,0) #time=timeStart+iTime*deltaT
 timeDelta = dt.timedelta(seconds=deltaT)
 #select time intervals within filesData[iFile]...end[-1] means use all times
 iTimeStart_fData = [0]
@@ -67,6 +66,9 @@ doSeg = True
 doMetrics = True
 doCorr = True
 doTracks = True
+
+#for inputType=wrf_trop
+fileMap = fDirData+'wrfout_mapProj.nc'
 
 def silentremove(filename):
   #from http://stackoverflow.com/questions/10840533/most-pythonic-way-to-delete-a-file-which-may-not-exist

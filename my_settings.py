@@ -15,12 +15,27 @@ latThresh = 30.*np.pi/180. #segment N of this latitude
 trackMinMaxBoth = 0 #0-min, 1-max (2-both shouldn't be used w/o further development)
 info = '30N_eraI_2006-06-01To09-30'
 
-fDirData = '/data02/cases/summer2006/eraI/pv/'
-filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.getmtime)
+# set the working directory of the data
+#fDirData = '/data02/cases/summer2006/eraI/pv/'
 #fDirData = '/data01/tracks/summer07/eraI/'
-#filesData = sorted(glob.glob(fDirData+'ERAI*.nc'), key=os.path.getmtime)
+fDirData = './example_eraI/'
+
+# enter an explicit list of files or allow the glob.glob function to pick them out for you
+#filesData = sorted(glob.glob(fDirData+'eraI_theta-u-v_2pvu_2006-06-01_09-30*'), key=os.path.ge    tmtime)
+filesData = sorted(glob.glob(fDirData+'ERAI*.nc'), key=os.path.getmtime)
 print filesData
-fileMap = fDirData+'wrfout_mapProj.nc' #for inputType=wrf_trop
+
+# set the start date/time
+timeStart = dt.datetime(2006,8,1,0)
+
+# set directory to save files
+#fDirSave = '/data01/tracks/summer07/tpvTrack/'
+#fDirSave = '/data01/tracks/summer06/closedContour/'
+#fDirSave = '/data01/tracks/wrf/algo/'
+fDirSave = './test-tpvTrack/'
+
+# for inputType=wrf_trop
+fileMap = fDirData+'wrfout_mapProj.nc'
 
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)
@@ -36,9 +51,6 @@ if (True): #a quick check of specified times
     import sys
     sys.exit()
 
-#fDirSave = '/data01/tracks/summer07/tpvTrack/'
-fDirSave = '/data01/tracks/summer06/closedContour/'
-#fDirSave = '/data01/tracks/wrf/algo/'
 if not os.path.exists(fDirSave):
     os.makedirs(fDirSave)
 

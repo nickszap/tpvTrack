@@ -323,7 +323,7 @@ def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
   
   #plot nan's with different color
   maskedVals = np.ma.array(vals, mask=np.isnan(vals))
-  cmap = matplotlib.cm.jet
+  cmap = matplotlib.cm.RdBu_r #matplotlib.cm.jet
   cmap.set_bad('w',1.)
   pPlot = m.pcolor(x,y,maskedVals,tri=True, shading='flat',edgecolors='none',cmap=cmap, vmin=280, vmax=360)
   

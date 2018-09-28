@@ -344,7 +344,7 @@ def debug_helper():
   print mesh.isIndsInRegion(cells)
 
 if __name__=='__main__':
-  #demo()
+  demo()
   #demo_testMods()
   #debug_helper()
   demo_algo_plots()

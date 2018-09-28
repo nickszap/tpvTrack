@@ -347,7 +347,7 @@ if __name__=='__main__':
   demo()
   #demo_testMods()
   #debug_helper()
-  #demo_algo_plots()
+  demo_algo_plots()
   #tracks.plot_tracks_metrics(my_settings.fTrack, my_settings.fDirSave+'test_tracks.png')
   #tracks.demo_plotMetrics('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')
   #tracks.demo_plotLifetimes('/data02/cases/test_segment/testUnified/summer2006/tracks_debug.txt')

@@ -15,6 +15,7 @@ import mpasMesh
 import wrfUniformMesh as wrfMesh
 
 def get_missingCells_file(data):
+  """Return mask of missing values, coded for GFS netCDF4 object"""
   #if search vertical column down from top, there can be no 2pvu value if:
   #-entire column is above 2pvu: DT below sfc
   #-entire column is below 2pvu: wrong hemisphere or low pv column (tropics, anticyclonic,...)
@@ -24,7 +25,7 @@ def get_missingCells_file(data):
   return isMissing
   
 def fill_missingVals_region(valsIn, nLat, nLon, isMissing, inRegion):
-  #fill value is average of non-missing neighbors
+  """For missing values in region that is used, fill value is average of non-missing neighbors"""
   
   vals = np.copy(valsIn)
   needFill = isMissing*inRegion;
@@ -46,8 +47,7 @@ def fill_missingVals_region(valsIn, nLat, nLon, isMissing, inRegion):
   return vals
   
 def get_segmentVars_file(data):
-  #return data of variables needed from file, no time index.
-  #return SI units
+  """Return data of variables needed from file, with no time index, in SI units. Coded for GFS"""
   
   #fname = '/data02/cases/2014/gfs_4_20140101_0000_123.nc'
   #data = netCDF4.Dataset(fname,'r')
@@ -66,6 +66,16 @@ def get_segmentVars_file(data):
 
 def calc_vertVorticity_ll(u, v, nLat, nLon, lat, r):
   '''
+  Calculate vertical vorticity on a latitude/longitude mesh
+  
+  Arguments:
+  u - zonal wind
+  v - meridional wind
+  nLat - number of latitude points
+  nLon - number of longitude points
+  lat - latitudes
+  r - radius of sphere
+  
   Pulled from: http://www.ncl.ucar.edu/Document/Functions/Built-in/uv2vr_cfd.shtml :
   According to H.B. Bluestein [Synoptic-Dynamic Meteorology in Midlatitudes, 1992, 
   Oxford Univ. Press p113-114], 
@@ -125,6 +135,7 @@ def calc_vertVorticity_ll(u, v, nLat, nLon, lat, r):
   return vort
    
 def calc_vorticity_wrfTrop_uniform(u, v, dx, dy, mapFac=1.0):
+  """Calculate vertical vorticity on a uniformly spaced WRF domain"""
   #Steven's files have variables already processed to cell centers.
   #u,v come in ordered [south_north=y, west_east=x]
   #we'll use numpy.gradient for the finite difference,
@@ -142,7 +153,13 @@ def calc_vorticity_wrfTrop_uniform(u, v, dx, dy, mapFac=1.0):
   return dv_dx-du_dy
 
 def calc_potentialTemperature(tmp, press):
-    
+  """
+  Return potential temperature
+  
+  Arguments:
+  tmp - temperature (K)
+  press - pressure (Pa)
+  """
   Cp = 1004.5; Rd = 287.04;
   Rd_cp = Rd/Cp; p0 = 1.e5
   theta = tmp*((p0/press)**Rd_cp)
@@ -150,8 +167,10 @@ def calc_potentialTemperature(tmp, press):
   return theta
 
 def eraTimeToCalendarTime(hrs):
-  #in the ERA file, time is stored as "hours since 1900-01-01 00:00:0.0"
-  #we'll convert that to a datetime object and return a nice looking string
+  """
+  In the ERA file, time is stored as "hours since 1900-01-01 00:00:0.0"
+  we'll convert that to a datetime object and return a nice looking string
+  """
   
   tBase = dt.datetime(1900, 1, 1, 0)
   #note that TypeError: unsupported type for timedelta hours component: numpy.int32
@@ -161,6 +180,19 @@ def eraTimeToCalendarTime(hrs):
   return s  
 
 def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='eraI case'):
+  """
+  Pre-process ERA-Interim data into tpvTrack format
+  
+  Arguments:
+  fMesh - path to file with mesh inforamtion
+  filesDataIn - Input ERA-I filepaths
+  fNameOut - filepath for output file
+  r - radius of sphere
+  dRegion - radius of neighborhood
+  latThresh - latitude cutoff for subset of domain used for segmentation, tracking,...
+  iTimeStart_fData - integer index for start time of each file
+  iTimeEnd_fData - integer index for end time of each file (can use -1 for last time in file)
+  """
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
   d2r = np.pi/180.; 
@@ -223,6 +255,20 @@ def demo_eraI(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   return mesh, cell0
 
 def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, info='mpas case'):
+  """
+  Pre-process MPAS data into tpvTrack format
+  
+  Arguments:
+  fMesh - path to file with mesh inforamtion
+  filesDataIn - Input MPAS output filepaths
+  fNameOut - filepath for output file
+  r - radius of sphere
+  dRegion - radius of neighborhood
+  latThresh - latitude cutoff for subset of domain used for segmentation, tracking,...
+  iTimeStart_fData - integer index for start time of each file
+  iTimeEnd_fData - integer index for end time of each file (can use -1 for last time in file)
+  """
+  
   #mesh ---------------------
   data = netCDF4.Dataset(fMesh,'r')
   lat = data.variables['latCell'][:]; lon = data.variables['lonCell'][:]
@@ -277,6 +323,21 @@ def demo_mpas(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fD
   return mesh, cell0
 
 def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStart_fData, iTimeEnd_fData, fMapProj, info='wrf case', pvIndex=3):
+  """
+  Pre-process WRF diagnosed tropopause data into tpvTrack format
+  
+  Arguments:
+  fMesh - path to file with mesh inforamtion
+  filesDataIn - Input ERA-I filepaths
+  fNameOut - filepath for output file
+  r - radius of sphere
+  dRegion - radius of neighborhood
+  latThresh - latitude cutoff for subset of domain used for segmentation, tracking,...
+  iTimeStart_fData - integer index for start time of each file
+  iTimeEnd_fData - integer index for end time of each file (can use -1 for last time in file)
+  fMapProj - filepath with information about domain's map projection
+  """
+  
   #For Steven's wrfout_trop files that have already been processed in a particular way.
   #I think the grid is oriented such that u,v are both grid and global zonal,meridional velocities.
   #If this isn't true, there's some figuring out to do.
@@ -365,7 +426,7 @@ def demo_wrf_trop(fMesh, filesDataIn, fNameOut, r, dRegion, latThresh, iTimeStar
   return mesh, cell0  
 
 def write_netcdf_header_metr(fName, info, mesh):
-  
+  """Create file and write header for tpvTrack preprocess netcdf file"""
   data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
   data.description = info
   
@@ -399,6 +460,7 @@ def write_netcdf_header_metr(fName, info, mesh):
   return data
   
 def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
+  """Write one time into tpvTrack preprocess netcdf file"""
   # fill file. with time as unlimited, dimension will just keep growing
   
   data.variables['u'][iTime,:] = u[:]
@@ -408,6 +470,7 @@ def write_netcdf_iTime_metr(data, iTime, u,v,theta,vort):
 #
 
 def plot_metr(fMetr):
+  """Example of plotting preprocess variables on map"""
   data = netCDF4.Dataset(fMetr,'r')
   nTimes = len(data.dimensions['time'])
   lat = data.variables['latCell'][:]*180./np.pi

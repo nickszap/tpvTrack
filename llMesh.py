@@ -8,6 +8,15 @@ import helpers
 #print "Expected format: lats[0->1] goes South. lons[0->1] goes east.\n" #matters in forming searchDisk
 
 def area_latLonCell(latN, latS, dLon, r):
+  """
+  Return area of a latitude/longitude cell on a sphere
+  
+  Arguments:
+  latN - Northern boundary (in radians)
+  latS - Southern boundary (in radians)
+  dLon - Longitudinal width (in radians)
+  r - radius of sphere
+  """
   #input angles in radians of northern bound, southern bound, and width of rectangle in radians
   #r is radius of circle in meters
   
@@ -16,10 +25,14 @@ def area_latLonCell(latN, latS, dLon, r):
   return area
     
 def calc_areaLatStrips(lat, r):
-  #return the areas of the latitude strips centered around the specified points.
-  #lat[0] is north and lat[nLat-1] is south.
-  #for multiple evenly spaced cells at a given latitude, areaCell = areaLats[iLat]/nLon
+  """
+  Return the areas of the latitude strips centered around the specified points
   
+  Arguments:
+  lat - array of latitudes (in radians). lat[0] is north pole and lat[nLat-1] is south pole.
+  r - radius of sphere
+  """
+  #for multiple evenly spaced cells at a given latitude, areaCell = areaLats[iLat]/nLon
   #caps of sphere for poles and latitude strips for rest.
   dLon = 2.*np.pi
   nLat = len(lat)
@@ -41,7 +54,15 @@ def calc_areaLatStrips(lat, r):
 
 iLonRef = 0
 def calc_lonIndicesWithinLength(lats, nLon, r, distRegion):
-  #return the number of longitude indices within given length at each specified latitude.
+  """
+  Return the number of uniformly spaced longitude indices within given length at each specified latitude.
+  
+  Arguments:
+  lats - specified latitudes (in radians)
+  nLon - number of longitude points around sphere
+  r - radius of sphere
+  distRegion - longitudinal distance for bounds
+  """
   #imagine this is like a pyramid with more at the poles and less at the equator.
   #since radius, take nLons[iLat] points both east and west for disk
   dRadLon = 2.*np.pi/nLon #[0,2pi)
@@ -56,6 +77,14 @@ def calc_lonIndicesWithinLength(lats, nLon, r, distRegion):
   return nLons
 
 def calc_latIndicesWithinLength(nLats, r, distRegion):
+  """
+  Return the number of uniformly spaced latitude indices within given length.
+  
+  Arguments:
+  nLats - number of latitude points around sphere
+  r - radius of sphere
+  distRegion - latitudinal distance for bounds
+  """
   #return the number of latitude indices within given length
   dRadLat = np.pi/(nLats-1) #[-pi/2, pi/2]
   distSN = r*dRadLat #arc length South-North
@@ -67,7 +96,21 @@ def calc_latIndicesWithinLength(nLats, r, distRegion):
 
 def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
                              nLatIndsLength, nLonIndsLength, r, distRegion):
-  #return list of lat,lon indices within specified spatial region of given point.
+  """
+  Return list of lat,lon indices within specified spatial region of given point.
+  
+  Arguments:
+  iLat0 - latitude index
+  iLon0 - longitude index
+  nLat - number of latitude points
+  nLon - number of longitude points
+  latCell - latitudes (in radians)
+  lonCell - longitudes (in radians)
+  nLatIndsLength - result of calc_latIndicesWithinLength(nLats, r, distRegion)
+  nLonIndsLength - result of calc_lonIndicesWithinLength(lats, nLon, r, distRegion)
+  r - radius of sphere
+  distRegion - distance of bounding box
+  """
   #for efficiency, call 1x per latitude and just shift lon indices.
   #nLonIndsLength = calc_lonIndicesWithinLength(lats, nLon, r, distRegion)...1x per mesh
   #Note that self=[iLat0,iLon0] pair will be in the returned region.
@@ -104,7 +147,19 @@ def gatherInds_region_latBox_1AtPole(iLat0, iLon0, nLat, nLon, latCell, lonCell,
   return (inRegion_lat, inRegion_lon)  
   
 class Mesh(object):
+  """
+  Define topology of domain for latitude/longitude mesh
+  """
   def __init__(self,lat,lon, r, rDisk):
+    """
+    Initialize Mesh instance
+    
+    Arguments:
+    lat - latitudes of cells
+    lon - longitudes of cells
+    r - radius of sphere
+    rDisk - radius of neighborhood
+    """
     self.r = r
     self.lat = lat
     self.lon = lon
@@ -120,10 +175,12 @@ class Mesh(object):
     self.info = 'latLon'
     
   def fill_latCellArea(self):
+    """ Calculate cell areas """
     areaLat = calc_areaLatStrips(self.lat, self.r)
     self.areaCell = areaLat/self.nLon
   
   def fill_inDisk(self):
+    """ Calculate reference bounding box for each latitude """
     dRegion = self.rDisk
     r = self.r; lat = self.lat; lon = self.lon;
     nLat = self.nLat; nLon = self.nLon
@@ -138,6 +195,7 @@ class Mesh(object):
       self.inDiskLon[iLat] = inDiskLon_ref
   
   def find_closestCell2Pt_ll(self, latPt, lonPt):
+    """ Calculate the closest cell to a specified point """
     #closest pt is (closest lat, closest lon)
     iLat = np.argmin(np.abs(self.lat-latPt)); 
     iLon = np.argmin(np.abs(self.lon-lonPt));
@@ -145,31 +203,46 @@ class Mesh(object):
     return (iLat, iLon)
   
   def get_closestCell2Pt(self, latPt, lonPt):
+    """ Return the 1D index of closest cell to specified point """
     iLat, iLon = self.find_closestCell2Pt_ll(latPt, lonPt)
     #print 'delta lat/lon', latPt-self.lat[iLat], lonPt-self.lon[iLon]
     return helpers.index_2dTo1d(iLat, iLon, self.nLon)
   
   def fill_inRegion(self, latThresh):
+    """ Mask the subset of the domain that is not used (e.g., since dynamic tropopause is not physically meaningful near the equator) """
     self.inRegion[self.lat<latThresh,:] = 0
   
   def get_inRegion1d(self):
+    """ Return a 1D boolean array of whether cell is in region that is used """
     return helpers.flatten_2dTo1d(self.inRegion, self.nLat, self.nLon)>0
   
   def isIndsInRegion(self, inds):
+    """ Slice input array inds with cells in region that is used """
     #creating a view should be cheap, but then we operate on it...
     inRegion = helpers.flatten_2dTo1d(self.inRegion, self.nLat, self.nLon)
     return inRegion[inds]>0
     
   def get_latLon_inds(self, inds):
+    """ Return the latitudes and longitudes of input 1D cell indices """
     iLats, iLons = helpers.index_1dTo2d(inds, self.nLon)
     return (self.lat[iLats], self.lon[iLons])
     
   def get_area_inds(self, inds):
+    """ Return the areas of input 1D cell indices """
     iLats, iLons = helpers.index_1dTo2d(inds, self.nLon)
     return self.areaCell[iLats]
     
 class Cell(object):
+  """Define the location of a cell in a mesh"""
   def __init__(self,mesh,ind):
+    """
+    Initialize Cell instance
+    
+    Arguments:
+    mesh - Mesh object
+    ind - index of cell in mesh
+    """
+    
     iLat, iLon = helpers.index_1dTo2d(ind, mesh.nLon)
     self.iLat = iLat
     self.iLon = iLon
@@ -180,6 +253,7 @@ class Cell(object):
     return self
 
   def next(self): # Python 3: def __next__(self)
+    """Iterate to next cell in mesh"""
     if self.ind < self.mesh.nCells-1:
       self.ind = self.ind + 1
       self.iLat,self.iLon = helpers.index_1dTo2d(self.ind, self.mesh.nLon)
@@ -188,15 +262,19 @@ class Cell(object):
       raise StopIteration
   
   def copy(self):
+    """ Copy the cell """
     return Cell(self.mesh, self.ind)
       
   def isInRegion(self):
+    """ Return boolean of cell in region that is used"""
     return self.mesh.inRegion[self.iLat,self.iLon]>0
       
   def nbrInds_ll(self):
-    #return list of 8-conn nbr indices: [(latNbr1, lonNbr1), (latNbr2, lonNbr2),...]
-    #always have east, west neighbors. not north/south at respective pole.
-    #the entire equatorward latitude circle is the neighbor of a pole.
+    """ 
+    Return list of 8-conn nbr indices: [(latNbr1, lonNbr1), (latNbr2, lonNbr2),...]
+    Always have east, west neighbors. not north/south at respective pole.
+    The entire equatorward latitude circle is the neighbor of a pole.
+    """
     
     iLat = self.iLat; iLon = self.iLon
     nLat = self.mesh.nLat; nLon = self.mesh.nLon
@@ -232,11 +310,13 @@ class Cell(object):
     return (nbrLats, nbrLons)
 
   def get_nbrInds(self):
+    """ Return the 1D indices of neighbors of a cell"""
     nbrInds_lat, nbrInds_lon = self.nbrInds_ll()
     nbrInds_lat = np.array(nbrInds_lat,dtype=int); nbrInds_lon = np.array(nbrInds_lon,dtype=int)
     return helpers.index_2dTo1d(nbrInds_lat,nbrInds_lon,self.mesh.nLon)
     
   def diskInds(self):
+    """ Return the indices of a cell in the reference grid of a neighborhood """
     iLat = self.iLat; iLon = self.iLon; nLon = self.mesh.nLon
     diffLonInd = iLon-iLonRef
     inDiskLon = (self.mesh.inDiskLon[iLat]+diffLonInd)%nLon
@@ -244,9 +324,11 @@ class Cell(object):
     return (self.mesh.inDiskLat[iLat], inDiskLon)
   
   def get_regionInds(self):
+    """ Return the flat index of a cell in the reference grid of a neighborhood """
     iLats,iLons = self.diskInds()
     return helpers.index_2dTo1d(iLats,iLons,self.mesh.nLon)
   
   def get_areaCell(self):
+    """ Return the area of a cell """
     return self.mesh.areaCell[self.iLat]
 

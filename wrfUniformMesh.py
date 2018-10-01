@@ -4,8 +4,11 @@ import numpy as np
 import helpers
 
 def calc_area(dx, dy, mapfac):
+  """
+  Calculate cell area
   #input computational dx,dy in meters
   #output area in m^2
+  """
   
   area = dx*dy/(mapfac*mapfac)
   return area
@@ -13,9 +16,11 @@ def calc_area(dx, dy, mapfac):
 #It may be faster to use the map projection to find the closest cell to a point...
 #maybe someone else wants to figure out how to do that :) !!!
 def findOwner_horizNbrs_latLon(mesh, latPt, lonPt, cellId):
+  """
   #given a guess cell, walk towards input latLon until no cell center is closer.
   #Then, the input point is w/in voronoi region ("owner") of that cell.
   #If domain is convex, can walk from one point to any other.
+  """
   
   radEarth = 1.0 #we don't need the "actual earth's" distance, just relative (closer and farther)
   latNew, lonNew = mesh.get_latLon_inds(cellId)
@@ -38,7 +43,7 @@ def findOwner_horizNbrs_latLon(mesh, latPt, lonPt, cellId):
   return cellId;
 
 def get_closestSeed2Pt(mesh, latPt, lonPt):
-    #return closest of predefined sites.
+    """return closest of predefined sites """
     
     nSeedsx = 6; nSeedsy = 7;
     seedCandidates_x = np.linspace(0, mesh.nx, num = nSeedsx).astype(int)
@@ -54,6 +59,7 @@ def get_closestSeed2Pt(mesh, latPt, lonPt):
     return iCell
 
 class Mesh(object):
+  """Define topology of domain for a uniformly spaced WRF mesh"""
   def __init__(self,lat,lon, dx, dy, r, rDisk):
     self.r = r
     self.dx = dx

@@ -34,17 +34,32 @@ The boundary is cell inside w/ neighbor outside.
 r2d = 180./np.pi
   
 def calc_circulation(basinInds, vort, mesh):
-  #\int gradxu . dA
+  """
+  Calculate circulation for 1 basin:
+  \int gradxu . dA
+  
+  Arguments:
+  basinInds - Indices of cells in basin
+  vort - vorticity
+  mesh - Mesh instance
+  """
   
   vortCells = vort[basinInds]
   cellAreas = mesh.get_area_inds(basinInds)
   return np.dot(vortCells, cellAreas)
 
-def calc_secondMomentArea(site0, basinInds, mesh):  
-  #moment of inertia about extremum: \int r^2 dA
-  #if want rotational moment, need some form of mass for sum(m r^2)
-  #return in units of km^4
+def calc_secondMomentArea(site0, basinInds, mesh):
+  """
+  Calculate moment of inertia about extremum:
+  \int r^2 dA
+  if want rotational moment, need some form of mass for sum(m r^2)
+  return in units of km^4
   
+  Arguments:
+  site0 - index of basin's extremum
+  basinInds - indices of cells in basin
+  mesh - Mesh instance
+  """
   #moment about extremum
   lat0, lon0 = mesh.get_latLon_inds(site0)
   latBasin, lonBasin = mesh.get_latLon_inds(basinInds)
@@ -56,15 +71,31 @@ def calc_secondMomentArea(site0, basinInds, mesh):
   return J
   
 def calc_amplitude_maxMin(basinInds, thetaFlat):
-  #max-min value
+  """
+  Calculate maximum amplitude of basin:
+  max-min value
+  
+  Arguments:
+  basinInds - indices of cells in basin
+  thetaFlat - 1D array of potential temperature
+  """
   
   valsBasin = thetaFlat[basinInds]
   minVal = np.min(valsBasin); maxVal = np.max(valsBasin)
   return maxVal-minVal
 
 def calc_fieldVolume(basinInds, thetaFlat, valRef, mesh):
-  #"volume": \int (theta-thetaRef) dA
-  #return in units of K*km^2
+  """
+  Calculate the "volume" of the basin:
+  "volume": \int (theta-thetaRef) dA
+  return in units of K*km^2
+  
+  Arguments:
+  basinInds - indices of cells in basin
+  thetaFlat - 1D array of potential temperature
+  valRef - reference potential temperature for basin (e.g., of boundary or core)
+  mesh - Mesh instance
+  """
   
   #moment about extremum
   vals = thetaFlat[basinInds]
@@ -75,11 +106,25 @@ def calc_fieldVolume(basinInds, thetaFlat, valRef, mesh):
   return vol
   
 def calc_area(basinInds, mesh):
+  """
+  Calculate the area of a basin
   
+  Arguments:
+  basinInds - indices of cells in basin
+  mesh - Mesh instance
+  """
   cellAreas = mesh.get_area_inds(basinInds)
   return np.sum(cellAreas)
 
 def get_minMax_cell2Site(site, cell2Site, theta):
+  """
+  Helper to calculate the minimum and maximum value in basin
+  
+  Arguments:
+  site - index of extremum of basin
+  cell2Site - map of cells to basins
+  theta - surface of values (e.g., potential temperature)
+  """
   inBasin = cell2Site==site
   minVal = np.amin(theta[inBasin])
   maxVal = np.amax(theta[inBasin])
@@ -88,7 +133,16 @@ def get_minMax_cell2Site(site, cell2Site, theta):
 
 metricKeys = 'circ vortMean ampMaxMin rEquiv thetaVol ampMean thetaExtr latExtr lonExtr'.split()
 def calc_metrics(sites, cell2Site, vort, theta, mesh):
-  #calculate input basins' properties and return metrics as dictionary
+  """
+  Calculate input basins' properties and return metrics as dictionary
+  
+  Arguments:
+  sites - indices of basins' extrema
+  cell2Site - map of cells to basins
+  vort - vertical vorticity (1/s)
+  theta - potential temperature (K)
+  mesh - Mesh instance
+  """
   
   #initialize
   nSites = len(sites)
@@ -134,7 +188,18 @@ def calc_metrics(sites, cell2Site, vort, theta, mesh):
   return metrics
     
 def run_metrics(fNameOut, info, mesh, dataMetr, dataSeg, iTimeStart, iTimeEnd):
+  """
+  Driver to run metrics module
   
+  Arguments:
+  fNameOut - Output filepath
+  info - description for output netCDF4 metadata
+  mesh - Mesh instance
+  dataMetr - tpvTrack preprocessing netCDF4 object
+  dataSeg - tpvTrack segmentation netCDF4 object
+  iTimeStart - Starting time index
+  iTimeEnd - Ending time index (metrics calculate for times [iTimeStart,iTimeEnd])
+  """
   nSitesMax = len(dataSeg.dimensions['nMax'])
   dataMetrics = write_netcdf_header(fNameOut, info, nSitesMax)
   
@@ -157,8 +222,16 @@ def run_metrics(fNameOut, info, mesh, dataMetr, dataSeg, iTimeStart, iTimeEnd):
   dataMetrics.close()
   
 def write_netcdf_header(fName, info, nSitesMax):
-  #I don't know how to make ragged arrays, so we'll use 
+  """
+  Make and write header for metrics netCDF4 file. 
+  Since I don't know how to make ragged arrays, so we'll use 
   #array[nTimes,nMax] and nElts[nTimes]
+  
+  Arguments:
+  fName - output filepath
+  info - description for output netCDF4 metadata
+  nSitesMax - maximum number of basins at one time
+  """
   
   data = netCDF4.Dataset(fName, 'w', format='NETCDF4')
   data.description = info
@@ -176,6 +249,16 @@ def write_netcdf_header(fName, info, nSitesMax):
   return data
   
 def write_netcdf_iTime(data, iTime, metrics, sites):
+  """
+  Write one time into metrics output
+  
+  Arguments:
+  data - metrics netCDF4 object
+  iTime - time index
+  metrics - dictionary of metrics (created by calc_metrics())
+  sites - indices of extrema of basins
+  """
+  
   # fill file. with time as unlimited, dimension will just keep growing
   
   nSites = len(sites)
@@ -187,6 +270,9 @@ def write_netcdf_iTime(data, iTime, metrics, sites):
 #
 
 def print_metrics(fName):
+  """
+  Print metrics in file as text to stdout
+  """
   data = netCDF4.Dataset(fName,'r')
   
   nTimes = len(data.dimensions['time'])
@@ -199,7 +285,14 @@ def print_metrics(fName):
   data.close()
 
 def get_metrics_basin(data, iTime, site):
+  """
+  Return the metrics of a basin at a time
   
+  Arguments:
+  data - metrics netCDF4 object
+  iTime - time index
+  site - index of basin's extremum
+  """
   vals = []
   sites = data.variables['sites'][iTime,:]
   iSite = np.where(sites==site)[0][0]
@@ -210,9 +303,17 @@ def get_metrics_basin(data, iTime, site):
   return vals
 
 def calc_diff_metricSpace(data, iTime0, site0, iTime1, sites1, r):
+  """
+  Calculate a distance using basin metrics, used in creating a metric space (in old version).
+  Return "distance" for >=1 basins from a reference basin.
+  
+  Arguments:
+  data - metrics netCDF4 object
+  iTime{0,1} - time index for time {0,1}
+  site{0,1} - indices of basins' extrema at time {0,1}. Input sites1 as list,array,...index-able.
+  r - radius of sphere (apparently not used)
+  """
   #here, we're calculating something like a metric in a metric space so value >= 0.
-  #Input sites1 as list,array,...index-able
-  #return "distance" for >=1 basins from a reference basin.
   #measures can include: distance, diffArea, diffIntensity,...
   
   #ansatz: basin metrics are useful for discrimating differences (ie, tpv properties should be semi-persistent)

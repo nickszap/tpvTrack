@@ -15,6 +15,7 @@ printTiming = True
 from datetime import datetime
 
 def demo():
+  """ tpvTrack driver. Using my_settings user-input, runs pre-process, segment, metrics, correspondence, and tracks."""
   #setup -----------------
   info = my_settings.info
   filesData = my_settings.filesData

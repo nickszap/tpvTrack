@@ -10,7 +10,7 @@ import helpers
 #-for every cell, walk down steepest gradient to the basin
 
 def find_basinBoundaries(cell2Site, cell0, mesh):
-  #a basin boundary is a cell with a cell2Site pointing to another basin
+  """a basin boundary is a cell with a cell2Site pointing to another basin"""
   
   isBoundary = np.zeros(mesh.nCells, dtype=int)
   for cell in iter(cell0.copy()): #not that cell referring to cell0 changes cell0
@@ -27,7 +27,7 @@ def find_basinBoundaries(cell2Site, cell0, mesh):
   return isBoundary
 
 def find_minCells_region_flat(vals, cell0, mesh):
-  #return array[nCells] with 1 if cell is min and cell in region
+  """return array[nCells] with 1 if cell is min and cell in region"""
   
   isMin = np.zeros(mesh.nCells,dtype=int)
   for cell in iter(cell0.copy()): #not that cell referring to cell0 changes cell0
@@ -49,10 +49,17 @@ def find_minCells_region_flat(vals, cell0, mesh):
   return isMin
 
 def watershed_region(vals, cellIsMin, cell0, mesh):
-  #to make adding/deleting basins simple, follow gradient until reach a site.
-  #map every cell to follow local steepest gradient. basins go to self.
-  #filter basins so have to be a min within specified region (disk of radius dRegion)
-  #return map of cell to basin.
+  """
+  Map every cell to a basin following local steepest gradient. Regional minima map to self.
+  Follow steepest-descent gradient until reach a site that is a minimum. Filter basins so have to be a min within specified region (disk of radius dRegion).
+  Return map of cell to basin.
+  
+  Arguments:
+  vals - values
+  cellIsMin - array >0 if cell is local minimum
+  cell0 - cell for iterating through mesh
+  mesh - Mesh instance
+  """
   
   '''
   #to adapt global watershed to region, make values outside of region huge so 
@@ -158,13 +165,23 @@ def watershed_region(vals, cellIsMin, cell0, mesh):
   return (cell2Site, cellIsMin)
 
 def segment_high_low_watershed_region(theta, vort, cell0, mesh, segRestrictPerc):
-  #get high and low basin seeds, associate cells to both high and low basins if not extrema.
-  #to decide whether "really" part of high or low basin, we have options:
-  #-(anti-)cyclonic for (high) low...is local vorticity noisy?
-  #-closer theta value to maxima a la color scale grouping...huge min or max value now matters
-  #-whether steeper gradient is to high or low
-  #-physical distance
-  #-concavity of surface a la last closed contour
+  """
+  Segment a continuous surface into high and low watershed basins
+  Steps: get high and low basin seeds, associate cells to both high and low basins if not extrema.
+  to decide whether "really" part of high or low basin, we have options:
+  -(anti-)cyclonic for (high) low...is local vorticity noisy?
+  -closer theta value to maxima a la color scale grouping...huge min or max value now matters
+  -whether steeper gradient is to high or low
+  -physical distance
+  -concavity of surface a la last closed contour
+  
+  Arguments:
+  theta - potential temperature
+  vort - vertical vorticity
+  cell0 - cell for iterating through mesh
+  mesh - Mesh instance
+  segRestrictPerc - Percentile for restricting watershed basins (percentile of amplitudes of cells on boundary of watershed basin)
+  """
   
   #mins
   print "Finding minima"
@@ -237,6 +254,7 @@ def segment_high_low_watershed_region(theta, vort, cell0, mesh, segRestrictPerc)
   return (cell2Site, cellIsMin, cellIsMax)
 
 def segment(theta, vort, cell0, mesh, segRestrictPerc):
+  """Wrapper for segmenting surface into high and low watershed basins"""
   cell2Site, cellIsMin, cellIsMax = segment_high_low_watershed_region(theta, vort, cell0, mesh, segRestrictPerc)
   sitesMin = cell2Site[cellIsMin>0]
   sitesMax = cell2Site[cellIsMax>0]
@@ -244,6 +262,7 @@ def segment(theta, vort, cell0, mesh, segRestrictPerc):
   return (cell2Site, sitesMin, sitesMax)
 
 def write_netcdf_header_seg(fName, info, nCells, nSitesMax):
+  """Make and write header for segmentation tpvTrack netcdf file"""
   #I don't know how to make ragged arrays, so we'll use 
   #array[nTimes,nMax] and nElts[nTimes]
   
@@ -271,6 +290,7 @@ def write_netcdf_header_seg(fName, info, nCells, nSitesMax):
   return data
   
 def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax):
+  """Write 1 time into segmentation tpvTrack netcdf file"""
   # fill file. with time as unlimited, dimension will just keep growing
   
   data.variables['cell2Site'][iTime,:] = cell2Site[:]
@@ -291,7 +311,7 @@ def write_netcdf_iTime_seg(data, iTime, cell2Site, sitesMin, sitesMax, nSitesMax
 #
 
 def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes, segRestrictPerc=5.):
-  
+  """Run segmentation over multiple times of input data"""
   nSitesMax = (mesh.get_inRegion1d()).sum() #can't have more sites than cells...
   nSitesMax = 3000
   dataSeg = write_netcdf_header_seg(fSeg, info, mesh.nCells, nSitesMax)
@@ -308,7 +328,10 @@ def run_segment(fSeg, info, dataMetr, cell0, mesh, nTimes, segRestrictPerc=5.):
   dataSeg.close()
 
 def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
-  #Input all as 1d arrays. lat/lon in radians
+  """
+  Example of plotting segmentation with basins colored by site.
+  Input all as 1d arrays. lat/lon in radians
+  """
   
   plt.figure()
 
@@ -334,7 +357,7 @@ def plot_basins_save(fNameSave, lat, lon, vals, sitesMin, sitesMax):
   plt.savefig(fNameSave, bbox_inches='tight'); plt.close()
 
 def run_plotBasins(fDirSave, dataMetr, fSeg, mesh):
-  
+  """Plot segmentation"""
   lat, lon = mesh.get_latLon_inds(np.arange(mesh.nCells))
   if (True):
     #latLon cells will have duplicate points, which mucks up the triangulation

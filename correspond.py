@@ -8,8 +8,16 @@ import cPickle as pickle; pickleProtocol = 2
 import basinMetrics
 
 def advect_LatLon(u, v, latIn, lonIn, dt, r ):
-  #return new lat/lon coordinates based on:
-  #u,v in m/s, lat/lon in radians, dt in s, rSphere in m
+  """
+  Return new lat/lon coordinates based on simple advection
+  
+  Arguments:
+  u - zonal velocity
+  v - meridional velocity
+  latIn - latitude [-pi/2, pi/2]
+  lonIn - longitude [0, 2pi)
+  r - radius of sphere (m)
+  """
   
   #u = r cos(lat) dLon/dt, v = r dLat/dt
   #constrain latitudes to be in [-pi/2, pi/2] and longitudes in [0, 2pi)
@@ -35,7 +43,7 @@ def advect_LatLon(u, v, latIn, lonIn, dt, r ):
   return (lat, lon)
 
 def advect_feature(siteInd, cell2Site, mesh, u, v, dt):
-  #return advected lat, lon points of feature cells
+  """return advected lat, lon points of feature cells"""
   
   nCells = len(cell2Site)
   inFeature = cell2Site==siteInd
@@ -64,7 +72,7 @@ def advect_feature(siteInd, cell2Site, mesh, u, v, dt):
   return (newLat, newLon)
 
 def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
-  #return cells inds of cells that basin advects to next time (+ or - dt)
+  """return cells inds of cells that basin advects to next time (+ or - dt)"""
   
   #coordinates of advected cell centers. 
   #so, we're assuming that mesh is dense enough wrt feature size that cell centers are sufficient?
@@ -117,16 +125,18 @@ def advect_basin(siteInd, cell2Site, mesh, u, v, dt):
   return basinCells
 
 def getCommon_1dInd(inds0, inds1):
-  #return common values between lists with unique values
+  """return common values between lists with unique values"""
   return np.intersect1d(inds0, inds1, assume_unique=True)
   
 def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
                                sites1, cell2Site1, u1, v1, mesh, doMaxArea=False):
+  """
   #Given fields+basins at t0 and t0+dt,
-  #-create candidate matches by overlapping advection
-  #in principle, overlap could mean: 
-  #-# of common cells, min threshold for common area, min threshold for convex hulls overlapping area,...
-  #return matrix with fraction of overlap by area(nCellsMatch)/area(nCellsPossible)
+  -create candidate matches by overlapping advection
+  in principle, overlap could mean: 
+  -# of common cells, min threshold for common area, min threshold for convex hulls overlapping area,...
+  return matrix with fraction of overlap by area(nCellsMatch)/area(nCellsPossible)
+  """
   
   nSites0 = len(sites0); nSites1 = len(sites1)
   fracOverlap = np.zeros((nSites0, nSites1), dtype=float)
@@ -184,6 +194,8 @@ def calc_fracOverlap_advection(sites0, cell2Site0, u0, v0, dt,
     return fracOverlap
 
 def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, siteIsMin):
+  """Calculate fractional "vertical" overlap in terms of potential temperature """
+  
   #If the "air mass" persists, the PT range should overlap between corresponding TPVs.
   
   #calculate bounds for each tpv that potentially matches another
@@ -219,6 +231,7 @@ def calc_fracOverlap_PT(sites0, sites1, cell2Site0, cell2Site1, theta0, theta1, 
   return fracOverlap
 
 def get_correspondMetrics(dataMetrics, sitesOut, iTime):
+  """Read metrics for correspondence (used in old version)"""
   #It's slow to load 1 value at a time from file.
   #So, we can get (load,calculate?) values for all sites at a given time.
   
@@ -248,6 +261,7 @@ def get_correspondMetrics(dataMetrics, sitesOut, iTime):
   return (valsOut, refDiffs)
   
 def calc_basinSimilarity(vals0, vals1, refDiffs):
+  """Calculate 2 basins' similarity based on metrics' persistence (used in old version)"""
   #Input vals[variable,sites]
   
   nKeys, nSites1 = vals1.shape
@@ -262,6 +276,23 @@ def correspond(sites0, cell2Site0, u0, v0, dt,
                sites1, cell2Site1, u1, v1, mesh,
                trackMinMaxBoth, fracOverlapThresh,
                iTime0, dataMetrics, theta0, theta1):
+  """
+  Identify major and minor correspondences between basins at time0 and time1=time0+deltaT using persistence of basins' metrics 
+  (used in old version)
+  
+  Arguments:
+  sites{0,1} - indices of basin extrema at t{0,1}
+  cell2Site{0,1} - segmentation map of cells to basins at t{0,1}
+  u{0,1} - zonal velocity at t{0,1}
+  v{0,1} - meridional velocity at t{0,1}
+  dt - timestep t1=t0+dt
+  mesh - Mesh instance
+  trackMinMaxBoth - 0 tracks minima, 1 tracks maxima, 2 tracks both together (which doesn't make physical sense since lows could correspond with highs)
+  fracOverlapThresh - Threshold of minimum fractional horizontal overlap that must exist to consider quantitative similarity of two basins [0,1]
+  iTime0 - time index of t0
+  dataMetrics - tpvTrack metrics netCDF4 object
+  theta{0,1} - tropopause potential temperature at t{0,1}
+  """
   
   #additional filters ---------------------
   #(1) feature properties a la cost function:
@@ -343,7 +374,20 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
                sites1, cell2Site1, u1, v1, mesh,
                trackMinMaxBoth, fracOverlapThresh,
                theta0, theta1):
+  """
+  Identify major and minor correspondences between basins at time0 and time1=time0+deltaT using horizontal and vertical overlap.
   
+  Arguments:
+  sites{0,1} - indices of basin extrema at t{0,1}
+  cell2Site{0,1} - segmentation map of cells to basins at t{0,1}
+  u{0,1} - zonal velocity at t{0,1} (m/s)
+  v{0,1} - meridional velocity at t{0,1} (m/s)
+  dt - timestep t1=t0+dt (s)
+  mesh - Mesh instance
+  trackMinMaxBoth - 0 tracks minima, 1 tracks maxima, 2 tracks both together (which doesn't make physical sense since lows could correspond with highs)
+  fracOverlapThresh - Threshold of minimum fractional horizontal overlap that must exist to consider quantitative similarity of two basins [0,1]
+  theta{0,1} - tropopause potential temperature at t{0,1}
+  """
   #horizontal overlap under advection, and
   #overlap fraction defines similarity
   
@@ -415,7 +459,21 @@ def correspond_overlap(sites0, cell2Site0, u0, v0, dt,
 
 def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt, 
                    trackMinMaxBoth, fracOverlapThresh, iTimeStart, iTimeEnd, dataMetrics):
+  """
+  Driver for correspondence module
   
+  Arguments:
+  fNameOut - Output file path
+  dataMetr - tpvTrack preprocessing netCDF4 object
+  dataSeg - tpvTrack segmentation netCDF4 object
+  mesh - Mesh instance
+  dt - timestep (s)
+  trackMinMaxBoth - 0 tracks minima, 1 tracks maxima, 2 tracks both together (which doesn't make physical sense since lows could correspond with highs)
+  fracOverlapThresh - Threshold of minimum fractional horizontal overlap that must exist to consider quantitative similarity of two basins [0,1]
+  iTimeStart - Global time index to start correspondences
+  iTimeEnd - Global time index to end correspondences (last correspondence is between iTimeEnd-1 <---> iTimeEnd)
+  dataMetrics - tpvTrack metrics netCDF4 object (used in old version with similarity based on basins' metrics persistence)
+  """
   #file for correspondences
   maxNSites = max(np.max(dataSeg.variables['nSitesMin'][:]), np.max(dataSeg.variables['nSitesMax'][:])); print "Maximum of {0} sites at any time".format(maxNSites)
   nTimes = iTimeEnd+1
@@ -471,8 +529,16 @@ def run_correspond(fNameOut, dataMetr, dataSeg, mesh, dt,
 
 def write_corr_netcdf_header(fName, info, maxNSites, nTimes):
   '''
-  unpickling objects gets expensive for long track times since we have to go sequentially
-  load the relevant times.
+  Make and write header for correspondence output file
+  
+  Arguments:
+  fName - output file path
+  info - additional description added to output metadata
+  maxNSites - Maximum number of sites/basins at any time (since I don't know how to make ragged arrays)
+  nTimes - number of timesteps
+  
+  Previous version used pickle.
+  Unpickling objects gets expensive for long track times since we have to go sequentially load the relevant times.
   
   netcdf allows more direct/quicker access
   '''
@@ -494,6 +560,14 @@ def write_corr_netcdf_header(fName, info, maxNSites, nTimes):
 
 def write_corr_iTime_netcdf(data, iTime, sites0, sites1, typeMatch):
   '''
+  Write one time into correspondence output file
+  
+  Arguments:
+  data - output netCDF4 object
+  iTime - time index
+  sites{0,1] - basin extrema at t{0,1}
+  typeMatch - the type of correspondence (0-none, 1-minor, 2-major)
+  
   variables to store are:
   {iTime, sites0, correspondingSites1[iSite0][iCorrespondingSites1], correspondenceType[iSite0][iCorrespondingSites1]}
   '''
@@ -513,6 +587,11 @@ def write_corr_iTime_netcdf(data, iTime, sites0, sites1, typeMatch):
     data.variables['corrTypes'][iTime,iSite0,0:nCorr] = typeCorr
     
 def plot_correspondences(fDirSave, fCorr, nTimes, mesh, iTimeStart=0):
+  """
+  Example plot of correspondences on map.
+  Basins at t0 are plotted as green +. Basins at t1 are plotted as red o.
+  Minor correspondence are denoted by red, thinner lines. Major are denoted by blue, thicker lines.
+  """
   
   dataCorr = netCDF4.Dataset(fCorr,'r')
   
@@ -560,7 +639,9 @@ def plot_correspondences(fDirSave, fCorr, nTimes, mesh, iTimeStart=0):
       plt.savefig(fSave); plt.close()
       
 def read_corr_iTime(data, iTime):
-  #read/return correspondences for the specified time index
+  """
+  Read/return correspondences for the specified time index
+  """
   #later accessed as correspondingSites1[iSite0][iCorrespondingSites1], correspondenceType[iSite0][iCorrespondingSites1]
   
   nSites0 = data.variables['nSites0'][iTime]
@@ -578,6 +659,9 @@ def read_corr_iTime(data, iTime):
   return (sites0, corrSites, corrTypes)
   
 def get_correspondingSites(dataCorr, iTime, site):
+  """
+  Return the sites that correspond to specified site at time index iTime
+  """
   allSites0, corrSites, typeCorr = read_corr_iTime(dataCorr, iTime)
   if (site not in allSites0):
     print "Uhoh, site doesn't correspond to another..."

@@ -16,6 +16,16 @@ import seaborn as sns
 r2d = 180./np.pi
 
 def plot_sfc(lat, lon, vals, fNameSave=None, title = ''):
+  """
+  Color plot on a map
+  
+  Arguments:
+  lat - latitudes (in radians)
+  lon - longitudes (in radians)
+  vals - values to color
+  fNameSave - if not None, name of figure to save
+  title - title to add to plot
+  """
   m = Basemap(projection='ortho',lon_0=0,lat_0=89.95, resolution='l')
   x,y = m(lon*r2d, lat*r2d)
   #print x.shape, y.shape
@@ -32,8 +42,8 @@ def plot_sfc(lat, lon, vals, fNameSave=None, title = ''):
   else:
     plt.savefig(fNameSave, bbox_inches='tight'); plt.close()
 
-def calc_counts(dataSeg, dataTrack):
-  #counts of number of basins in each cell
+def calc_counts(dataSeg, dataTrack,nTimesMin=4):
+  """Returns the counts of number of times a tracked basin (with lifetime>=nTimesMin) occurs in each cell"""
   
   #for composite-ing field using the basin as a filter
   nCells = len(dataSeg.dimensions['nCells'])
@@ -50,15 +60,15 @@ def calc_counts(dataSeg, dataTrack):
     iTime0 = dataTrack.variables['iTimeStart'][iTrack]
     nTimes = dataTrack.variables['lenTrack'][iTrack]
     if (True):
-      nMin = 4; #print "Not counting tracks with nTimes<",nMin
-      if (nTimes<nMin):
+      #nMin = 4; #print "Not counting tracks with nTimes<",nMin
+      if (nTimes<nTimesMin):
         continue
     
     sitesInTrack = dataTrack.variables['siteExtr'][iTrack,0:nTimes]
     
-    #for iTime in xrange(nTimes):
-    for iTime in xrange(1):
-    #for iTime in xrange(nTimes-1, nTimes):
+    #for iTime in xrange(nTimes): #all times in track
+    for iTime in xrange(1): #genesis times in track
+    #for iTime in xrange(nTimes-1, nTimes): #lysis times in track
       iTimeGlobal = iTime0+iTime
       site = sitesInTrack[iTime]
       
@@ -70,6 +80,7 @@ def calc_counts(dataSeg, dataTrack):
   return countIn
 
 def demo_counts():
+  """Example of plotting basin counts"""
   fDir = '/data02/tracks/summer07/tpvTrack/' #'/data02/tracks/summer06/jun1-sep30/'
   fMetr = fDir+'fields.nc'
   fSeg = fDir+'seg.nc'
@@ -87,7 +98,7 @@ def demo_counts():
   plot_sfc(lat, lon, counts, fNameSave=None, title = 'Genesis count of 2007 highs')
     
 def demo_plotMetrics(fTracks):
-
+  """Example of plotting tracks' metrics"""
   metricNames = ['thetaExtr', 'latExtr']
   #latInd = metricNames.index('latExtr')
 
@@ -109,6 +120,7 @@ def demo_plotMetrics(fTracks):
     plt.show()
 
 def demo_compareMetrics(fTracks):
+  """Example of joint plotting 2 tracks' metrics"""
   metricNames = ['rEquiv', 'vortMean']
   #latInd = metricNames.index('latExtr')
 
@@ -131,7 +143,7 @@ def demo_compareMetrics(fTracks):
   plt.show()
 
 def demo_plotLifetimes(fTracks):
-
+  """Example histogram of tracked lifetimes"""
   metricNames = ['latExtr']
   trackList = read_tracks_metrics(fTracks, metricNames)
   
@@ -152,6 +164,7 @@ def demo_plotLifetimes(fTracks):
   plt.show()
 
 def demo_plot_minMax_life():
+  """Example of plotting when metric extrema occur within each track"""
   filesTracks = ['/data02/tracks/summer06/jun1-sep30/tracks_test_tanh_.66.nc', '/data02/tracks/summer06/jun1-sep30/tracks_high.nc',
                  '/data02/tracks/summer07/tpvTrack/tracks_low.nc', '/data02/tracks/summer07/tpvTrack/tracks_high.nc']
   info = ['lows2006', 'highs2006', 'lows2007', 'highs2007']
@@ -203,6 +216,7 @@ def demo_plot_minMax_life():
         plt.savefig(saveName); plt.close()
 
 def demo_compareMetrics_pretty():
+  """Example of joint-plotting 2 metrics """
   filesTracks = ['/data02/tracks/summer06/jun1-sep30/tracks_test_tanh_.66.nc', '/data02/tracks/summer06/jun1-sep30/tracks_high.nc',
                  '/data02/tracks/summer07/tpvTrack/tracks_low.nc', '/data02/tracks/summer07/tpvTrack/tracks_high.nc']
   info = ['lows2006', 'highs2006', 'lows2007', 'highs2007']
@@ -257,6 +271,7 @@ def demo_compareMetrics_pretty():
         plt.savefig(saveName); plt.close()
         
 def demo_calendarLife():
+  """Example of plotting longest track that starts at each time"""
   filesTracks = ['/data02/tracks/summer06/jun1-sep30/tracks_test_tanh_.66.nc', '/data02/tracks/summer06/jun1-sep30/tracks_high.nc',
                  '/data02/tracks/summer07/tpvTrack/tracks_low.nc', '/data02/tracks/summer07/tpvTrack/tracks_high.nc']
   info = ['lows2006', 'highs2006','lows2007', 'highs2007']
@@ -299,6 +314,7 @@ def demo_calendarLife():
   plt.show()
 
 def demo_calendarMetric():
+  """Example of plotting maximum metric of track at each time"""
   filesTracks = ['/data02/tracks/summer06/jun1-sep30/tracks_test_tanh_.66.nc', '/data02/tracks/summer06/jun1-sep30/tracks_high.nc',
                  '/data02/tracks/summer07/tpvTrack/tracks_low.nc', '/data02/tracks/summer07/tpvTrack/tracks_high.nc']
   info = ['lows2006', 'highs2006','lows2007', 'highs2007']

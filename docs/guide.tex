@@ -12,7 +12,7 @@
 
 \author{Nick Szapiro}
 
-\date{August 2018}
+\date{October 2018}
 
 \begin{document}
 \maketitle
@@ -23,6 +23,7 @@ The default is the ``unified" branch. Other branches provide additional modifica
 \section{Python setup}
 TPVTrack is written in Python as it is portable, friendly to write/read, and broadly used across atmospheric science.
 Written in Python 2.7, the necessary libraries are NumPy and netCDF4, with optional MPI for Python (for parallel version) and Matplotlib and Basemap (for post-processing).
+For Anaconda Python users, all packages in the Python environment for the manuscript are in tpvTrack/docs/environment.yml.
 
 \section{Overview}
 Running [python driver.py] on the command line calls driver.py:demo(), which uses the user-provided information in my\_settings.py to pre-process meteorological data into the TPVTrack fomat, segment the continuous surface into discrete objects of restricted (anti-)cyclonic watershed basins, describe the basins by geometric metrics, associate basins over time by overlap similarity into major and minor correspondences, and track TPVs along major correspondences. It's sequential (e.g., have to run the segmentation before calculating metrics). While reading the source code is more comprehensive, the main modules are:
@@ -67,15 +68,32 @@ For input data from a different source, the user will need to implement Mesh and
 \item doXXX True/False to run module (set to False if re-running and already have previous module output)
 \end{itemize}
 
+\section{Output}
+\subsection{driver.py:demo()}
+\begin{itemize}
+\item fields.nc - NetCDF file of Meterological input data output from preProcess.py
+\item seg.nc - NetCDF file of segmentation basins
+\item metrics.nc - NetCDF file of geometric basin metrics
+\item correspond\_horizPlusVert.nc - NetCDF file of time correspondence between basins
+\item tracks\_low\_horizPlusVert.nc - NetCDF file of tracks along major correspondences. TPV tracks are obtained as a subset by requiring additional conditions appropriate for a TPV.
+\end{itemize}
+
+\subsection{driver.py:demo\_algo\_plots()}
+\begin{itemize}
+\item seg*png - Maps of each time's segmentation with basins colored by site (e.g., Fig. 1.c)
+\item corr*png - Maps of correspondences between neighboring times. Basins at t0 are plotted as green +. Basins at t1 are plotted as red o. Minor correspondence are denoted by red, thinner lines. Major correspondences are denoted by blue, thicker lines
+\item test\_tracks.png - Map of tracks with sufficient lifetime colored by core potential temperature
+\end{itemize}
+
 \section{Example ERA-Interim test case}
 Using the default unified source code branch,
 \begin{itemize}
 \item Create a directory for the case, e.g., fDir = /home/user/test-tpvTrack/ . cd into fDir.
 \item Download ERA-I u, v, potential temperature for your time period 6-hourly (\url{http://apps.ecmwf.int/datasets/data/interim-full-daily/levtype=pv/}). A small example file is included \begin{verbatim} tpvTrack/example_eraI/ERAI_tpvTracker_2006-08-01To2006-08-04.nc \end{verbatim}
 \item git clone \url{https://github.com/nickszap/tpvTrack.git}
-\item In preProcess.py, set (1) fDirData=fDir, (2) \begin{verbatim}filesData=['/home/user/test-tpvTrack/example_eraI/ERAI_tpvTracker_2006-08-01To2006-08-04.nc']\end{verbatim} or to your own file, (3) timeStart= dt.datetime(2006,8,1,0) or your own date, (4) fDirSave=fDir
-\item Run \emph{python driver.py}
-\item At the bottom of driver.py, comment \#demo(). Uncomment demo\_algo\_plots(). Run \emph{python driver.py}. Compare images to tropopause maps for consistency.
+\item In my\_settings.py, set (1) info='ERA-Interim test case' (or other descriptive string), (2) fDirData=fDir, (3) \begin{verbatim}filesData=['/home/user/test-tpvTrack/example_eraI/ERAI_tpvTracker_2006-08-01To2006-08-04.nc']\end{verbatim} (to your own file), (4) timeStart= dt.datetime(2006,8,1,0) (to data's start date), (5) fDirSave=fDir (or other directory).
+\item Run \emph{python driver.py} from the command line, which calls demo() and demo\_algo\_plots(). Note that .pyc files will be created (but ignored in .gitignore).
+\item Compare images to (1) included tpvTrack/test-tpvTrack/*png and (2) tropopause maps for consistency.
 
 \end{itemize}
 

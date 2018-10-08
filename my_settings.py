@@ -35,7 +35,7 @@ timeStart = dt.datetime(2006,8,1,0)
 #fDirSave = '/data01/tracks/summer07/tpvTrack/'
 #fDirSave = '/data01/tracks/summer06/closedContour/'
 #fDirSave = '/data01/tracks/wrf/algo/'
-fDirSave = './test-tpvTrack/'
+fDirSave = './test-tpvTrack_metadata/'
 
 #time information of input data
 deltaT = 6.*60.*60. #timestep between file times (s)

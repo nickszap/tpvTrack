@@ -132,6 +132,8 @@ def get_minMax_cell2Site(site, cell2Site, theta):
   return (minVal,maxVal)
 
 metricKeys = 'circ vortMean ampMaxMin rEquiv thetaVol ampMean thetaExtr latExtr lonExtr'.split()
+metricUnits = ['km^2/s', '1/s', 'K','km','K km^2','K','K','degrees','degrees']
+metricNames = ['Circulation','Mean vorticity','Maximum amplitude','Equivalent radius','Volume','Mean amplitude','Core potential temperature','Core latitude','Core longitude']
 def calc_metrics(sites, cell2Site, vort, theta, mesh):
   """
   Calculate input basins' properties and return metrics as dictionary
@@ -244,8 +246,11 @@ def write_netcdf_header(fName, info, nSitesMax):
   data.createVariable('nSites', 'i4', ('time',))
   data.createVariable('sites', 'i4', ('time','nMax',))
   
-  for key in metricKeys:
-    data.createVariable(key, 'f8', ('time','nMax',))
+  #for key in metricKeys:
+  for iKey in xrange(len(metricKeys)):
+    key = metricKeys[iKey]; units = metricUnits[iKey]; info=metricNames[iKey]
+    var_data = data.createVariable(key, 'f8', ('time','nMax',))
+    var_data.units = units; var_data.long_name=info
   return data
   
 def write_netcdf_iTime(data, iTime, metrics, sites):

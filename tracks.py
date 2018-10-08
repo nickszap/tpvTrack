@@ -211,8 +211,11 @@ def write_tracks_metrics_netcdf_header(fName, info, nTimesInTrackMax, nTimes):
   data.createVariable('lenTrack', 'i4', ('nTracks',))
   data.createVariable('siteExtr', 'i4', ('nTracks','nTimesTrack',))
   
-  for key in basinMetrics.metricKeys:
-    data.createVariable(key, 'f8', ('nTracks','nTimesTrack',))
+  #for key in basinMetrics.metricKeys:
+  for iKey in xrange(len(basinMetrics.metricKeys)):
+    key = basinMetrics.metricKeys[iKey]; units=basinMetrics.metricUnits[iKey];info=basinMetrics.metricNames[iKey]
+    var_data = data.createVariable(key, 'f8', ('nTracks','nTimesTrack',))
+    var_data.units = units; var_data.long_name=info
   return data
 
 def write_tracks_metrics_iTime_netcdf(data, iTime0, iTrackGlobal0, trackList, dataMetrics, timeStartGlobal, deltaTGlobal):
@@ -387,7 +390,7 @@ def plot_tracks_metrics(fTracks, fSave):
   for iTrack,track in enumerate(trackList):
     nTimes = track.shape[0]
     if (True):
-      if (nTimes<56):
+      if (nTimes<8):
         continue
     
     lat = track[:,latInd]
@@ -405,7 +408,7 @@ def plot_tracks_metrics(fTracks, fSave):
     colorline(x, y, z=vals, cmap=plt.get_cmap('RdBu_r'), norm=plt.Normalize(varMin, varMax), linewidth=3, alpha=1.0, ax=ax)
   
   #plt.colorbar()
-  s = 'TPV {0}, [{1},{2}]'.format(varKey, varMin, varMax)
+  s = 'Tracks {0}, [{1},{2}]'.format(varKey, varMin, varMax)
   plt.title(s)
   if (False):
     plt.show()

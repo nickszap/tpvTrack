@@ -444,12 +444,12 @@ def write_netcdf_header_metr(fName, info, mesh):
   vort_data = data.createVariable('vort', 'f8', ('time','nCells',))
   
   #units and descriptions
-  latCell_data.units = 'radians'
-  lonCell_data.units = 'radians'
-  u_data.units = 'm/s'
-  v_data.units = 'm/s'
-  theta_data.units = 'K'
-  vort_data.units = '1/s'
+  latCell_data.units = 'radians'; latCell_data.long_name='Latitude'
+  lonCell_data.units = 'radians'; lonCell_data.long_name='Longitude'
+  u_data.units = 'm/s'; u_data.long_name='Zonal velocity'
+  v_data.units = 'm/s'; v_data.long_name='Meridional velocity'
+  theta_data.units = 'K'; theta_data.long_name='Potential temperature'
+  vort_data.units = '1/s'; vort_data.long_name='Vertical vorticity'
   
   #fill lat/lon
   allCells = np.arange(nCells)

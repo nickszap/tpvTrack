@@ -550,11 +550,18 @@ def write_corr_netcdf_header(fName, info, maxNSites, nTimes):
   data.createDimension('nTimes', nTimes)
   
   # variables
-  data.createVariable('nSites0', 'i4', ('nTimes',))
-  data.createVariable('sites0', 'i4', ('nTimes','maxNSites',))
-  data.createVariable('nCorrSites', 'i4', ('nTimes','maxNSites',))
-  data.createVariable('corrSites', 'i4', ('nTimes','maxNSites','maxNSites',))
-  data.createVariable('corrTypes', 'i4', ('nTimes','maxNSites','maxNSites',))
+  nSites0_data = data.createVariable('nSites0', 'i4', ('nTimes',))
+  sites0_data = data.createVariable('sites0', 'i4', ('nTimes','maxNSites',))
+  nCorrSites_data = data.createVariable('nCorrSites', 'i4', ('nTimes','maxNSites',))
+  corrSites_data = data.createVariable('corrSites', 'i4', ('nTimes','maxNSites','maxNSites',))
+  corrTypes_data = data.createVariable('corrTypes', 'i4', ('nTimes','maxNSites','maxNSites',))
+  
+  #Descriptions
+  nSites0_data.description = 'Number of sites'
+  sites0_data.description = 'Indices of sites'
+  nCorrSites_data.description='Number of corresponding sites'
+  corrSites_data.description = 'Indices of corresponding sites'
+  corrTypes_data.description = 'Correspondence category [0-none,1-minor,2-major]'
   
   return data
 

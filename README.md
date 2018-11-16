@@ -4,7 +4,7 @@ tpvTrack
 Tracking tropopause polar vortices
 
 A User's guide is available under ./docs/  
-Paper: https://www.overleaf.com/read/gyyjwfybqryq (eventually GMD link)    
+GMDD Manuscript: https://www.geosci-model-dev-discuss.net/gmd-2018-180/ (eventually GMD link)  
 
 This file is part of tpvTrack.
 

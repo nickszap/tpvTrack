@@ -1,12 +1,11 @@
 tpvTrack
 ========
 
-Tracking tropopause polar vortices
+Tracking method for tropopause polar vortices (https://www.geosci-model-dev.net/11/5173/2018/)  
 
-A User's guide is available under ./docs/  
-GMDD Manuscript: https://www.geosci-model-dev-discuss.net/gmd-2018-180/ (eventually GMD link)  
+Tropopause polar vortices (TPVs) are coherent (anti)cyclonic features based on the tropopause common in polar regions with typical radii of 100 to 1000 km, intensities of 1 to 50 K, and lifetimes of days to months. For tracking TPVs natively on structured or unstructured grids, TPVs are segmented from the gridded flow field into spatial objects as restricted regional watershed basins on the tropopause, described by geometric metrics, associated over time by overlap similarity into major and minor correspondences, and tracked along major correspondences.
 
-This file is part of tpvTrack.
+A user's guide is available under ./docs/  
 
     tpvTrack is free software: you can redistribute it and/or modify  
     it under the terms of the GNU General Public License as published by  

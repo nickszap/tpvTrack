@@ -188,6 +188,16 @@ class Cell(object):
     nbrx = np.array(nbrx,dtype=int); nbry=np.array(nbry, dtype=int)
     return helpers.index_2dTo1d(nbry,nbrx,self.mesh.nx)
   
+  def get_regionInds(self):
+    """Indices of cells in disk neighborhood"""
+    delnx = int(self.mesh.rDisk/self.mesh.dx)
+    delny = int(self.mesh.rDisk/self.mesh.dy)
+    xInds = np.arange(max(0,ix-delnx), min(self.mesh.nx-1,ix+delnx)+1) #arange is [start,end)
+    yInds = np.arange(max(0,iy-delny), min(self.mesh.ny-1,iy+delny)+1)
+    xInds, yInds = np.meshgrid(xInds,yInds)
+    xInds = np.ravel(xInds); yInds = np.ravel(yInds)
+    return helpers.index_2dTo1d(yInds,xInds,self.mesh.nx)
+  
   def get_areaCell(self):
     return self.mesh.areaCell[self.ind]
 
